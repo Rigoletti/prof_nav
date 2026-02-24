@@ -31,18 +31,26 @@ export const AuthProvider = ({ children }) => {
             const originalRequest = error.config;
 
             // Если ошибка 401 и это не запрос на refresh token
-            if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/refresh-token')) {
+            if (error.response?.status === 401 && 
+                !originalRequest._retry && 
+                !originalRequest.url.includes('/auth/refresh-token') &&
+                !originalRequest.url.includes('/auth/login') &&
+                !originalRequest.url.includes('/auth/register')) {
+                
                 originalRequest._retry = true;
 
                 try {
                     // Пытаемся обновить токен
-                    await api.post('/auth/refresh-token');
-                    // Повторяем исходный запрос
-                    return api(originalRequest);
+                    const refreshResponse = await api.post('/auth/refresh-token');
+                    
+                    if (refreshResponse.data.success) {
+                        // Повторяем исходный запрос
+                        return api(originalRequest);
+                    }
                 } catch (refreshError) {
+                    console.error('Failed to refresh token:', refreshError);
                     // Если не удалось обновить токен, разлогиниваем пользователя
                     setUser(null);
-                    return Promise.reject(refreshError);
                 }
             }
 
@@ -54,12 +62,18 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                console.log('Checking authentication...');
                 const response = await api.get('/auth/check-auth');
+                
                 if (response.data.success) {
+                    console.log('User authenticated:', response.data.user);
                     setUser(response.data.user);
+                } else {
+                    console.log('Not authenticated');
+                    setUser(null);
                 }
             } catch (error) {
-                console.error('Auth check failed:', error);
+                console.error('Auth check failed:', error.response?.data || error.message);
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -72,13 +86,19 @@ export const AuthProvider = ({ children }) => {
     const register = async (userData) => {
         try {
             setError(null);
+            console.log('Registering with data:', { ...userData, password: '***' });
+            
             const response = await api.post('/auth/register', userData);
             
             if (response.data.success) {
+                console.log('Registration successful:', response.data.user);
                 setUser(response.data.user);
-                return { success: true };
+                return { success: true, user: response.data.user };
+            } else {
+                throw new Error(response.data.message || 'Registration failed');
             }
         } catch (error) {
+            console.error('Registration error:', error.response?.data || error.message);
             const message = error.response?.data?.message || 'Ошибка регистрации';
             setError(message);
             return { success: false, error: message };
@@ -88,13 +108,19 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             setError(null);
+            console.log('Logging in with:', { email, password: '***' });
+            
             const response = await api.post('/auth/login', { email, password });
             
             if (response.data.success) {
+                console.log('Login successful:', response.data.user);
                 setUser(response.data.user);
-                return { success: true };
+                return { success: true, user: response.data.user };
+            } else {
+                throw new Error(response.data.message || 'Login failed');
             }
         } catch (error) {
+            console.error('Login error:', error.response?.data || error.message);
             const message = error.response?.data?.message || 'Ошибка входа';
             setError(message);
             return { success: false, error: message };
@@ -111,6 +137,39 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const updateProfile = async (profileData) => {
+        try {
+            const response = await api.put('/users/profile', profileData);
+            
+            if (response.data.success) {
+                setUser(response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                throw new Error(response.data.message || 'Update failed');
+            }
+        } catch (error) {
+            console.error('Profile update error:', error.response?.data || error.message);
+            const message = error.response?.data?.message || 'Ошибка обновления профиля';
+            return { success: false, message };
+        }
+    };
+
+    const changePassword = async (passwordData) => {
+        try {
+            const response = await api.put('/users/password', passwordData);
+            
+            if (response.data.success) {
+                return { success: true };
+            } else {
+                throw new Error(response.data.message || 'Password change failed');
+            }
+        } catch (error) {
+            console.error('Password change error:', error.response?.data || error.message);
+            const message = error.response?.data?.message || 'Ошибка изменения пароля';
+            return { success: false, message };
+        }
+    };
+
     const value = {
         user,
         loading,
@@ -118,6 +177,8 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
+        updateProfile,
+        changePassword,
         api
     };
 

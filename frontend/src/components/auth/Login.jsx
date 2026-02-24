@@ -52,20 +52,26 @@ const Login = () => {
         setError('');
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
 
-        const result = await login(formData);
-
-        if (result.success) {
-            navigate(from, { replace: true });
-        } else {
-            setError(result.message);
-        }
-
-        setLoading(false);
-    };
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    console.log('Login form submitted with:', { email: formData.email, password: '***' });
+    
+    const result = await login(formData.email, formData.password);
+    
+    if (result.success) {
+        console.log('Login successful, redirecting to profile');
+        navigate('/profile');
+    } else {
+        console.log('Login failed:', result.error);
+        setError(result.error);
+    }
+    
+    setLoading(false);
+};
 
     return (
         <Box

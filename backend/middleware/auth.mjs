@@ -3,16 +3,15 @@ import User from '../models/User.mjs';
 
 export const authenticate = async (req, res, next) => {
     try {
-        // Пробуем получить токен из заголовка Authorization
-        const authHeader = req.headers.authorization;
-        let token;
+        let token = null;
         
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            token = authHeader.split(' ')[1];
-        } 
-        // Или из cookies
-        else if (req.cookies.accessToken) {
+        // Пробуем получить токен из cookies (приоритет)
+        if (req.cookies && req.cookies.accessToken) {
             token = req.cookies.accessToken;
+        } 
+        // Или из заголовка Authorization
+        else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            token = req.headers.authorization.split(' ')[1];
         }
         
         if (!token) {
@@ -43,6 +42,7 @@ export const authenticate = async (req, res, next) => {
         req.user = user;
         next();
     } catch (error) {
+        console.error('Ошибка аутентификации:', error);
         return res.status(401).json({
             success: false,
             message: 'Ошибка авторизации'
@@ -52,8 +52,8 @@ export const authenticate = async (req, res, next) => {
 
 export const authenticateAdmin = async (req, res, next) => {
     try {
-        await authenticate(req, res, () => {
-            if (req.user.role !== 'admin') {
+        await authenticate(req, res, async () => {
+            if (!req.user || !req.user.isAdmin) {
                 return res.status(403).json({
                     success: false,
                     message: 'Доступ запрещён. Требуется роль администратора'

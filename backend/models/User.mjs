@@ -1,5 +1,3 @@
-// models/User.mjs - исправленная схема
-
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -37,13 +35,14 @@ const userSchema = new mongoose.Schema({
     testResults: [{
         testType: {
             type: String,
-            enum: ['klimov_adaptive', 'golomshtok'],
+            enum: ['klimov_adaptive', 'golomshtok', 'holland', 'yovaysha', 'yovaysha_la'],
             required: true
         },
         date: {
             type: Date,
             default: Date.now
         },
+        // Результаты Климова
         klimovScores: {
             manNature: Number,
             manTech: Number,
@@ -52,6 +51,7 @@ const userSchema = new mongoose.Schema({
             manArt: Number
         },
         primaryKlimovType: String,
+        
         // Результаты Голомштока
         golomshtokScores: {
             physics: Number,
@@ -66,12 +66,62 @@ const userSchema = new mongoose.Schema({
             sports: Number
         },
         primaryGolomshtokType: String,
-        // Исправлено: теперь это массив объектов, а не массив строк
         topGolomshtokTypes: [{
             type: { type: String, required: true },
             score: { type: Number, required: true },
             name: { type: String, required: true }
         }],
+        
+        // Результаты Голланда (Холланда)
+        hollandScores: {
+            realistic: Number,
+            investigative: Number,
+            artistic: Number,
+            social: Number,
+            enterprising: Number,
+            conventional: Number
+        },
+        primaryHollandType: String,
+        topHollandTypes: [{
+            type: { type: String, required: true },
+            score: { type: Number, required: true },
+            name: { type: String, required: true }
+        }],
+        
+        // Результаты теста Я. Йовайши
+        yovayshaScores: {
+            art: Number,
+            technical: Number,
+            workWithPeople: Number,
+            mental: Number,
+            aesthetic: Number,
+            physical: Number,
+            economic: Number
+        },
+        primaryYovayshaType: String,
+        topYovayshaTypes: [{
+            type: { type: String, required: true },
+            score: { type: Number, required: true },
+            name: { type: String, required: true }
+        }],
+        
+        // Результаты методики Л.А. Йовайши
+        yovayshaLaScores: {
+            workWithPeople: Number,
+            mentalWork: Number,
+            technicalWork: Number,
+            aestheticWork: Number,
+            extremeWork: Number,
+            plannedWork: Number
+        },
+        primaryYovayshaLaType: String,
+        topYovayshaLaTypes: [{
+            type: { type: String, required: true },
+            score: { type: Number, required: true },
+            name: { type: String, required: true }
+        }],
+        
+        // Общие поля для рекомендаций
         recommendedSpecialties: [{
             specialtyId: {
                 type: mongoose.Schema.Types.ObjectId,
@@ -87,7 +137,8 @@ const userSchema = new mongoose.Schema({
             },
             matchPercentage: Number,
             matchReasons: [String],
-            klimovTypes: [String]
+            klimovTypes: [String],
+            hollandTypes: [String]
         }],
         detailedAnswers: [{
             questionId: Number,

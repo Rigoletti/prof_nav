@@ -13,6 +13,12 @@ import KlimovTest from './components/test/KlimovTest';
 import KlimovResults from './components/test/KlimovResults';
 import GolomshtokTest from './components/test/GolomshtokTest';
 import GolomshtokResults from './components/test/GolomshtokResults';
+import HollandTest from './components/test/HollandTest';
+import HollandResults from './components/test/HollandResults';
+import YovayshaTest from './components/test/YovayshaTest';
+import YovayshaResults from './components/test/YovayshaResults';
+import YovayshaLaTest from './components/test/YovayshaLaTest';
+import YovayshaLaResults from './components/test/YovayshaLaResults';
 import Register from './components/auth/Register';
 import Login from './components/auth/Login';
 import Profile from './components/auth/Profile';
@@ -143,13 +149,43 @@ const App = () => {
                                         <GolomshtokTest />
                                     </ProtectedRoute>
                                 } />
-                                <Route path="/colleges" element={<CollegesPage />} />
-<Route path="/colleges/:id" element={<CollegeDetailPage />} />
                                 <Route path="/test/golomshtok/results" element={
                                     <ProtectedRoute>
                                         <GolomshtokResults />
                                     </ProtectedRoute>
                                 } />
+                                <Route path="/test/holland" element={
+                                    <ProtectedRoute>
+                                        <HollandTest />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/holland/results" element={
+                                    <ProtectedRoute>
+                                        <HollandResults />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/yovaysha" element={
+                                    <ProtectedRoute>
+                                        <YovayshaTest />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/yovaysha/results" element={
+                                    <ProtectedRoute>
+                                        <YovayshaResults />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/yovayshala" element={
+                                    <ProtectedRoute>
+                                        <YovayshaLaTest />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/yovayshala/results" element={
+                                    <ProtectedRoute>
+                                        <YovayshaLaResults />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/colleges" element={<CollegesPage />} />
+                                <Route path="/colleges/:id" element={<CollegeDetailPage />} />
                                 <Route path="/test/history" element={
                                     <ProtectedRoute>
                                         <TestHistory />

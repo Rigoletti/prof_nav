@@ -15,6 +15,8 @@ import {
 } from '@mui/material';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import WorkIcon from '@mui/icons-material/Work';
+import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoIcon from '@mui/icons-material/Info';
 
@@ -43,6 +45,39 @@ const TestSelection = () => {
             questions: '50 вопросов',
             time: '15-20 минут',
             path: '/test/golomshtok'
+        },
+        {
+            id: 'holland',
+            title: 'Тест Голланда',
+            description: 'Типы профессиональной среды',
+            fullDescription: 'Методика Дж. Голланда определяет ваш профессиональный тип: реалистичный, исследовательский, артистический, социальный, предприимчивый, конвенциональный. Помогает подобрать подходящую профессиональную среду.',
+            icon: <WorkIcon sx={{ fontSize: 60 }} />,
+            color: '#10b981',
+            questions: '42 вопроса',
+            time: '10-15 минут',
+            path: '/test/holland'
+        },
+        {
+            id: 'yovaysha',
+            title: 'Тест Йовайши',
+            description: 'Склонности к сферам деятельности',
+            fullDescription: 'Методика Я. Йовайши выявляет склонности к различным сферам профессиональной деятельности: искусство, техника, работа с людьми, умственная работа, эстетика, физическая работа, экономика.',
+            icon: <PsychologyAltIcon sx={{ fontSize: 60 }} />,
+            color: '#ec4899',
+            questions: '42 вопроса',
+            time: '10-15 минут',
+            path: '/test/yovaysha'
+        },
+        {
+            id: 'yovayshala',
+            title: 'Методика Л.А. Йовайши',
+            description: 'Предпочтения в работе',
+            fullDescription: 'Модифицированная методика Л.А. Йовайши определяет предпочтения в различных видах трудовой деятельности: работа с людьми, умственный труд, техническая работа, эстетическая деятельность, экстремальная деятельность, плановая деятельность.',
+            icon: <PsychologyAltIcon sx={{ fontSize: 60 }} />,
+            color: '#f59e0b',
+            questions: '30 вопросов',
+            time: '8-10 минут',
+            path: '/test/yovayshala'
         }
     ];
 
@@ -149,11 +184,12 @@ const TestSelection = () => {
                     <Paper sx={{ p: 4, borderRadius: 4, backgroundColor: alpha(theme.palette.primary.main, 0.05) }}>
                         <InfoIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
                         <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-                            Почему стоит пройти оба теста?
+                            Почему стоит пройти несколько тестов?
                         </Typography>
                         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 800, mx: 'auto' }}>
-                            Тест Климова определяет ваш профессиональный тип личности, а "Карта интересов" Голомштока выявляет конкретные сферы ваших интересов. 
-                            Вместе они дают полную картину для выбора будущей профессии и помогают подобрать наиболее подходящие специальности.
+                            Каждый тест раскрывает разные аспекты вашей личности и профессиональных предпочтений. 
+                            Комплексное тестирование дает наиболее полную картину для выбора будущей профессии 
+                            и помогает подобрать наиболее подходящие специальности.
                         </Typography>
                     </Paper>
                 </Box>

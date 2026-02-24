@@ -64,53 +64,47 @@ const Register = () => {
         setAgreedToTerms(e.target.checked);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-
-        if (!formData.email || !formData.password || !formData.firstName || !formData.lastName || !formData.confirmPassword) {
-            setError('Все обязательные поля должны быть заполнены');
-            return;
-        }
-
-        if (formData.password !== formData.confirmPassword) {
-            setError('Пароли не совпадают');
-            return;
-        }
-
-        if (formData.password.length < 6) {
-            setError('Пароль должен содержать минимум 6 символов');
-            return;
-        }
-
-        if (!formData.email.includes('@')) {
-            setError('Введите корректный email');
-            return;
-        }
-
-        if (!agreedToTerms) {
-            setError('Необходимо согласиться с условиями обработки персональных данных');
-            return;
-        }
-
-        setLoading(true);
-
-        const result = await register({
-            email: formData.email,
-            password: formData.password,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            middleName: formData.middleName // Отправляем отчество
-        });
-
-        if (result.success) {
-            navigate('/');
-        } else {
-            setError(result.message);
-        }
-
+   const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    const { email, password, confirmPassword, firstName, lastName, middleName } = formData;
+    
+    if (password !== confirmPassword) {
+        setError('Пароли не совпадают');
         setLoading(false);
+        return;
+    }
+    
+    if (password.length < 6) {
+        setError('Пароль должен содержать минимум 6 символов');
+        setLoading(false);
+        return;
+    }
+    
+    const userData = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        middleName: middleName ? middleName.trim() : '',
+        email: email.trim().toLowerCase(),
+        password
     };
+    
+    console.log('Register form submitted with:', { ...userData, password: '***' });
+    
+    const result = await register(userData);
+    
+    if (result.success) {
+        console.log('Registration successful, redirecting to profile');
+        navigate('/profile');
+    } else {
+        console.log('Registration failed:', result.error);
+        setError(result.error);
+    }
+    
+    setLoading(false);
+};
 
     return (
         <Box

@@ -7,11 +7,13 @@ import {
 
 // Утилита для установки cookies
 const setTokensCookies = (res, accessToken, refreshToken) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     // Access token cookie - short-lived
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProduction,
+        sameSite: isProduction ? 'strict' : 'lax',
         maxAge: 15 * 60 * 1000, // 15 минут
         path: '/'
     });
@@ -19,8 +21,8 @@ const setTokensCookies = (res, accessToken, refreshToken) => {
     // Refresh token cookie - long-lived
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProduction,
+        sameSite: isProduction ? 'strict' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
         path: '/'
     });
@@ -28,14 +30,15 @@ const setTokensCookies = (res, accessToken, refreshToken) => {
 
 // Утилита для очистки cookies
 const clearTokensCookies = (res) => {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
 };
 
 export const register = async (req, res) => {
     try {
         const { email, password, firstName, lastName, middleName } = req.body;
 
+        // Валидация
         if (!email || !password || !firstName || !lastName) {
             return res.status(400).json({
                 success: false,
@@ -43,7 +46,15 @@ export const register = async (req, res) => {
             });
         }
 
-        const existingUser = await User.findOne({ email });
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Пароль должен содержать минимум 6 символов'
+            });
+        }
+
+        // Проверка существующего пользователя
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -51,20 +62,25 @@ export const register = async (req, res) => {
             });
         }
 
+        // Создание пользователя
         const user = await User.create({
-            email,
+            email: email.toLowerCase(),
             password,
-            firstName,
-            lastName,
-            middleName: middleName || '', // Добавляем отчество
-            role: 'user'
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            middleName: middleName ? middleName.trim() : '',
+            role: 'user',
+            isAdmin: false
         });
 
+        // Генерация токенов
         const accessToken = generateAccessToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
+        // Установка cookies
         setTokensCookies(res, accessToken, refreshToken);
 
+        // Формирование ответа (без пароля)
         const userResponse = {
             _id: user._id,
             email: user.email,
@@ -72,10 +88,11 @@ export const register = async (req, res) => {
             lastName: user.lastName,
             middleName: user.middleName, 
             avatar: user.avatar,
-            testResults: user.testResults,
+            testResults: user.testResults || [],
             role: user.role,
             isAdmin: user.isAdmin,
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
+            savedSpecialties: user.savedSpecialties || []
         };
 
         res.status(201).json({
@@ -87,7 +104,7 @@ export const register = async (req, res) => {
         console.error('Ошибка при регистрации:', error);
         res.status(500).json({
             success: false,
-            message: 'Ошибка при регистрации'
+            message: 'Ошибка при регистрации: ' + error.message
         });
     }
 };
@@ -96,6 +113,7 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        // Валидация
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -103,7 +121,8 @@ export const login = async (req, res) => {
             });
         }
 
-        const user = await User.findOne({ email });
+        // Поиск пользователя
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -111,6 +130,7 @@ export const login = async (req, res) => {
             });
         }
 
+        // Проверка пароля
         const isPasswordValid = await user.comparePassword(password);
         if (!isPasswordValid) {
             return res.status(401).json({
@@ -119,11 +139,14 @@ export const login = async (req, res) => {
             });
         }
 
+        // Генерация токенов
         const accessToken = generateAccessToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
+        // Установка cookies
         setTokensCookies(res, accessToken, refreshToken);
 
+        // Формирование ответа (без пароля)
         const userResponse = {
             _id: user._id,
             email: user.email,
@@ -131,10 +154,11 @@ export const login = async (req, res) => {
             lastName: user.lastName,
             middleName: user.middleName,
             avatar: user.avatar,
-            testResults: user.testResults,
+            testResults: user.testResults || [],
             role: user.role,
             isAdmin: user.isAdmin,
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
+            savedSpecialties: user.savedSpecialties || []
         };
 
         res.json({
@@ -146,7 +170,7 @@ export const login = async (req, res) => {
         console.error('Ошибка при авторизации:', error);
         res.status(500).json({
             success: false,
-            message: 'Ошибка при авторизации'
+            message: 'Ошибка при авторизации: ' + error.message
         });
     }
 };
@@ -171,7 +195,7 @@ export const refreshToken = async (req, res) => {
             });
         }
 
-        const user = await User.findById(decoded.userId);
+        const user = await User.findById(decoded.userId).select('-password');
         if (!user) {
             clearTokensCookies(res);
             return res.status(401).json({
@@ -236,10 +260,11 @@ export const getProfile = async (req, res) => {
                 lastName: user.lastName,
                 middleName: user.middleName, 
                 avatar: user.avatar,
-                testResults: user.testResults,
+                testResults: user.testResults || [],
                 role: user.role,
                 isAdmin: user.isAdmin,
-                createdAt: user.createdAt
+                createdAt: user.createdAt,
+                savedSpecialties: user.savedSpecialties || []
             }
         });
     } catch (error) {
@@ -271,10 +296,11 @@ export const checkAuth = async (req, res) => {
                 lastName: user.lastName,
                 middleName: user.middleName,
                 avatar: user.avatar,
-                testResults: user.testResults,
+                testResults: user.testResults || [],
                 role: user.role,
                 isAdmin: user.isAdmin,
-                createdAt: user.createdAt
+                createdAt: user.createdAt,
+                savedSpecialties: user.savedSpecialties || []
             }
         });
     } catch (error) {

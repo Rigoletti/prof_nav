@@ -17,13 +17,14 @@ import {
     ListItemText
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import SchoolIcon from '@mui/icons-material/School';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import WorkIcon from '@mui/icons-material/Work';
+import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -87,6 +88,27 @@ const Header = () => {
             icon: <AutoStoriesIcon />,
             description: 'Методика Голомштока',
             color: '#8b5cf6'
+        },
+        { 
+            label: 'Тест Голланда', 
+            path: '/test/holland',
+            icon: <WorkIcon />,
+            description: 'Типы профессиональной среды',
+            color: '#10b981'
+        },
+        { 
+            label: 'Тест Йовайши', 
+            path: '/test/yovaysha',
+            icon: <PsychologyAltIcon />,
+            description: 'Склонности к сферам деятельности',
+            color: '#ec4899'
+        },
+        { 
+            label: 'Методика Л.А. Йовайши', 
+            path: '/test/yovayshala',
+            icon: <PsychologyAltIcon />,
+            description: 'Предпочтения в работе',
+            color: '#f59e0b'
         }
     ];
 
@@ -189,22 +211,6 @@ const Header = () => {
                             Тесты
                         </Button>
                         
-                        {user?.isAdmin && (
-                            <Button
-                                component={RouterLink}
-                                to="/admin"
-                                sx={{
-                                    color: 'white',
-                                    fontWeight: location.pathname.startsWith('/admin') ? 700 : 400,
-                                    '&:hover': {
-                                        backgroundColor: alpha(theme.palette.common.white, 0.1),
-                                    }
-                                }}
-                            >
-                                Админ-панель
-                            </Button>
-                        )}
-                        
                         <Menu
                             anchorEl={testsMenuAnchor}
                             open={Boolean(testsMenuAnchor)}
@@ -212,7 +218,8 @@ const Header = () => {
                             PaperProps={{
                                 sx: {
                                     mt: 1.5,
-                                    minWidth: 280,
+                                    minWidth: 320,
+                                    maxHeight: 400,
                                     borderRadius: 2,
                                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
                                 }
@@ -246,6 +253,22 @@ const Header = () => {
                                 </MenuItem>
                             ))}
                         </Menu>
+
+                        {user?.isAdmin && (
+                            <Button
+                                component={RouterLink}
+                                to="/admin"
+                                sx={{
+                                    color: 'white',
+                                    fontWeight: location.pathname.startsWith('/admin') ? 700 : 400,
+                                    '&:hover': {
+                                        backgroundColor: alpha(theme.palette.common.white, 0.1),
+                                    }
+                                }}
+                            >
+                                Админ-панель
+                            </Button>
+                        )}
                     </Box>
 
                     {/* Правая часть - пользователь */}
@@ -324,6 +347,41 @@ const Header = () => {
                                         </ListItemIcon>
                                         <ListItemText>Карта интересов</ListItemText>
                                     </MenuItem>
+                                    
+                                    <MenuItem 
+                                        component={RouterLink} 
+                                        to="/test/holland"
+                                        onClick={handleMenuClose}
+                                    >
+                                        <ListItemIcon>
+                                            <WorkIcon fontSize="small" sx={{ color: '#10b981' }} />
+                                        </ListItemIcon>
+                                        <ListItemText>Тест Голланда</ListItemText>
+                                    </MenuItem>
+                                    
+                                    <MenuItem 
+                                        component={RouterLink} 
+                                        to="/test/yovaysha"
+                                        onClick={handleMenuClose}
+                                    >
+                                        <ListItemIcon>
+                                            <PsychologyAltIcon fontSize="small" sx={{ color: '#ec4899' }} />
+                                        </ListItemIcon>
+                                        <ListItemText>Тест Йовайши</ListItemText>
+                                    </MenuItem>
+                                    
+                                    <MenuItem 
+                                        component={RouterLink} 
+                                        to="/test/yovayshala"
+                                        onClick={handleMenuClose}
+                                    >
+                                        <ListItemIcon>
+                                            <PsychologyAltIcon fontSize="small" sx={{ color: '#f59e0b' }} />
+                                        </ListItemIcon>
+                                        <ListItemText>Методика Л.А. Йовайши</ListItemText>
+                                    </MenuItem>
+                                    
+                                    <Divider />
                                     
                                     <MenuItem 
                                         component={RouterLink} 
@@ -448,6 +506,7 @@ const Header = () => {
                         </MenuItem>
                         
                         <Divider />
+                        
                         <Typography variant="caption" sx={{ px: 2, py: 1, color: 'text.secondary', display: 'block' }}>
                             ТЕСТЫ
                         </Typography>
@@ -461,10 +520,7 @@ const Header = () => {
                             <ListItemIcon>
                                 <PsychologyIcon sx={{ color: '#6366f1' }} />
                             </ListItemIcon>
-                            <ListItemText 
-                                primary="Тест Климова"
-                                secondary="Тип личности"
-                            />
+                            <ListItemText primary="Тест Климова" secondary="Тип личности" />
                         </MenuItem>
                         
                         <MenuItem 
@@ -476,15 +532,49 @@ const Header = () => {
                             <ListItemIcon>
                                 <AutoStoriesIcon sx={{ color: '#8b5cf6' }} />
                             </ListItemIcon>
-                            <ListItemText 
-                                primary="Карта интересов"
-                                secondary="Методика Голомштока"
-                            />
+                            <ListItemText primary="Карта интересов" secondary="Методика Голомштока" />
                         </MenuItem>
+                        
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/test/holland"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/test/holland'}
+                        >
+                            <ListItemIcon>
+                                <WorkIcon sx={{ color: '#10b981' }} />
+                            </ListItemIcon>
+                            <ListItemText primary="Тест Голланда" secondary="Типы профессиональной среды" />
+                        </MenuItem>
+                        
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/test/yovaysha"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/test/yovaysha'}
+                        >
+                            <ListItemIcon>
+                                <PsychologyAltIcon sx={{ color: '#ec4899' }} />
+                            </ListItemIcon>
+                            <ListItemText primary="Тест Йовайши" secondary="Склонности к сферам деятельности" />
+                        </MenuItem>
+                        
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/test/yovayshala"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/test/yovayshala'}
+                        >
+                            <ListItemIcon>
+                                <PsychologyAltIcon sx={{ color: '#f59e0b' }} />
+                            </ListItemIcon>
+                            <ListItemText primary="Методика Л.А. Йовайши" secondary="Предпочтения в работе" />
+                        </MenuItem>
+                        
+                        <Divider />
                         
                         {user ? (
                             <>
-                                <Divider />
                                 <MenuItem 
                                     component={RouterLink} 
                                     to="/profile"
@@ -522,7 +612,6 @@ const Header = () => {
                             </>
                         ) : (
                             <>
-                                <Divider />
                                 <MenuItem 
                                     component={RouterLink} 
                                     to="/login"
