@@ -17,6 +17,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import WorkIcon from '@mui/icons-material/Work';
 import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'; // Добавлен импорт
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoIcon from '@mui/icons-material/Info';
 
@@ -78,6 +79,17 @@ const TestSelection = () => {
             questions: '30 вопросов',
             time: '8-10 минут',
             path: '/test/yovayshala'
+        },
+        {
+            id: 'comprehensive',
+            title: 'Комплексный тест',
+            description: 'Объединяет 5 методик',
+            fullDescription: 'Комплексный тест включает вопросы из всех 5 методик: Климова, Голомштока, Голланда, Йовайши и Л.А. Йовайши. Позволяет получить наиболее полную картину за 15-20 минут.',
+            icon: <AutoAwesomeIcon sx={{ fontSize: 60 }} />,
+            color: '#764ba2',
+            questions: '40 вопросов',
+            time: '15-20 минут',
+            path: '/test/comprehensive'
         }
     ];
 
@@ -99,14 +111,14 @@ const TestSelection = () => {
 
                 <Grid container spacing={4} justifyContent="center">
                     {tests.map((test) => (
-                        <Grid item xs={12} md={6} key={test.id}>
+                        <Grid item xs={12} md={6} lg={4} key={test.id}>
                             <Card sx={{ 
                                 borderRadius: 4,
                                 height: '100%',
-                                transition: 'transform 0.2s',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
                                 '&:hover': {
                                     transform: 'translateY(-8px)',
-                                    boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+                                    boxShadow: `0 20px 40px ${alpha(test.color, 0.3)}`
                                 }
                             }}>
                                 <CardContent sx={{ p: 4 }}>
@@ -125,7 +137,7 @@ const TestSelection = () => {
                                         {test.icon}
                                     </Box>
                                     
-                                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, textAlign: 'center' }}>
+                                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, textAlign: 'center', color: test.color }}>
                                         {test.title}
                                     </Typography>
                                     

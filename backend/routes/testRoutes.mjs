@@ -37,6 +37,14 @@ import {
 } from '../controllers/yovayshaLaController.mjs';
 import { authenticate } from '../middleware/auth.mjs';
 
+import {
+    getComprehensiveTest,
+    submitComprehensiveAnswer,
+    getComprehensiveResults,
+    getPreviousComprehensiveQuestion
+} from '../controllers/comprehensiveTestController.mjs';
+
+
 const router = express.Router();
 
 // Тест Климова
@@ -76,4 +84,10 @@ router.get('/yovayshala/progress', authenticate, getYovayshaLaProgress);
 router.get('/results', authenticate, getTestResults);
 router.get('/progress', authenticate, getTestProgress);
 
+
+// Комплексный тест
+router.get('/comprehensive/start', authenticate, getComprehensiveTest);
+router.post('/comprehensive/answer', authenticate, submitComprehensiveAnswer);
+router.post('/comprehensive/previous', authenticate, getPreviousComprehensiveQuestion);
+router.get('/comprehensive/results', authenticate, getComprehensiveResults);
 export default router;

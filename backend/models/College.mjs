@@ -6,42 +6,46 @@ const collegeSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    description: {
+        type: String,
+        default: ''
+    },
+    address: {
+        type: String,
+        default: ''
+    },
     city: {
         type: String,
         required: true,
-        trim: true,
-        default: 'Не указан'
+        trim: true
     },
     region: {
         type: String,
         required: true,
-        trim: true,
-        default: 'Не указан'
-    },
-    address: {
-        type: String,
-        default: 'Адрес не указан',
-        trim: true
-    },
-    website: {
-        type: String,
-        default: '',
         trim: true
     },
     phone: {
         type: String,
-        default: '',
-        trim: true
+        default: ''
     },
     email: {
         type: String,
-        default: '',
-        trim: true
+        default: ''
     },
-    description: {
+    website: {
         type: String,
-        default: '',
-        trim: true
+        default: ''
+    },
+    // Координаты для геолокации
+    location: {
+        lat: {
+            type: Number,
+            default: null
+        },
+        lng: {
+            type: Number,
+            default: null
+        }
     },
     specialties: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -55,22 +59,9 @@ const collegeSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-}, {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
 });
 
-// Виртуальное поле для количества специальностей
-collegeSchema.virtual('specialtyCount').get(function() {
-    return this.specialties?.length || 0;
-});
-
-// Индексы для оптимизации поиска
-collegeSchema.index({ name: 1 });
-collegeSchema.index({ city: 1 });
-collegeSchema.index({ region: 1 });
-collegeSchema.index({ name: 1, city: 1 });
-
+// Обновление updatedAt при сохранении
 collegeSchema.pre('save', function(next) {
     this.updatedAt = new Date();
     next();

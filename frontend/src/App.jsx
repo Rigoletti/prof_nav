@@ -19,6 +19,8 @@ import YovayshaTest from './components/test/YovayshaTest';
 import YovayshaResults from './components/test/YovayshaResults';
 import YovayshaLaTest from './components/test/YovayshaLaTest';
 import YovayshaLaResults from './components/test/YovayshaLaResults';
+import ComprehensiveTest from './components/test/ComprehensiveTest';
+import ComprehensiveResults from './components/test/ComprehensiveResults';
 import Register from './components/auth/Register';
 import Login from './components/auth/Login';
 import Profile from './components/auth/Profile';
@@ -34,6 +36,7 @@ import ComparePage from './pages/specialties/ComparePage';
 import FavoritesPage from './pages/specialties/FavoritesPage';
 import CollegesPage from './pages/colleges/CollegesPage';
 import CollegeDetailPage from './pages/colleges/CollegeDetailPage';
+import NearbyCollegesPage from './pages/colleges/NearbyCollegesPage';
 
 const theme = createTheme({
     palette: {
@@ -164,6 +167,8 @@ const App = () => {
                                         <HollandResults />
                                     </ProtectedRoute>
                                 } />
+                                <Route path="/colleges/:id" element={<CollegeDetailPage />} />
+                                <Route path="/nearby" element={<NearbyCollegesPage />} />
                                 <Route path="/test/yovaysha" element={
                                     <ProtectedRoute>
                                         <YovayshaTest />
@@ -182,6 +187,16 @@ const App = () => {
                                 <Route path="/test/yovayshala/results" element={
                                     <ProtectedRoute>
                                         <YovayshaLaResults />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/comprehensive" element={
+                                    <ProtectedRoute>
+                                        <ComprehensiveTest />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/test/comprehensive/results" element={
+                                    <ProtectedRoute>
+                                        <ComprehensiveResults />
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/colleges" element={<CollegesPage />} />

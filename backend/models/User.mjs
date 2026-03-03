@@ -104,7 +104,21 @@ const userSchema = new mongoose.Schema({
             score: { type: Number, required: true },
             name: { type: String, required: true }
         }],
-        
+        // Результаты комплексного теста
+        comprehensiveScores: {
+            klimov: mongoose.Schema.Types.Mixed,
+            golomshtok: mongoose.Schema.Types.Mixed,
+            holland: mongoose.Schema.Types.Mixed,
+            yovaysha: mongoose.Schema.Types.Mixed,
+            yovaysha_la: mongoose.Schema.Types.Mixed
+        },
+        primaryComprehensiveTypes: {
+            klimov: String,
+            golomshtok: String,
+            holland: String,
+            yovaysha: String,
+            yovaysha_la: String
+        },
         // Результаты методики Л.А. Йовайши
         yovayshaLaScores: {
             workWithPeople: Number,
@@ -147,6 +161,7 @@ const userSchema = new mongoose.Schema({
         }],
         questionsCount: Number
     }],
+    
     savedSpecialties: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Specialty'

@@ -9,6 +9,7 @@ import testRoutes from './routes/testRoutes.mjs';
 import specialtyRoutes from './routes/specialtyRoutes.mjs'; 
 import collegeRoutes from './routes/collegeRoutes.mjs';
 import adminRoutes from './routes/adminRoutes.mjs';
+import locationRoutes from './routes/locationRoutes.mjs'; // ДОЛЖНО БЫТЬ!
 import { errorHandler } from './middleware/errorHandler.mjs';
 
 dotenv.config();
@@ -38,9 +39,11 @@ app.use('/api/tests', testRoutes);
 app.use('/api/specialties', specialtyRoutes); 
 app.use('/api/colleges', collegeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/location', locationRoutes); // ДОЛЖНО БЫТЬ!
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+    console.log(`📍 Маршрут /api/location/nearby доступен`);
 });

@@ -25,6 +25,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import WorkIcon from '@mui/icons-material/Work';
 import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -76,6 +77,13 @@ const Header = () => {
 
     const tests = [
         { 
+            label: 'Комплексный тест', 
+            path: '/test/comprehensive',
+            icon: <AutoAwesomeIcon />,
+            description: '5 методик за 40 вопросов',
+            color: '#764ba2'
+        },
+        { 
             label: 'Тест Климова', 
             path: '/test/klimov',
             icon: <PsychologyIcon />,
@@ -116,6 +124,7 @@ const Header = () => {
         { label: 'Главная', path: '/' },
         { label: 'Специальности', path: '/specialties' },
         { label: 'Колледжи', path: '/colleges' },
+        { label: 'Рядом со мной', path: '/nearby' },
     ];
 
     return (
@@ -151,7 +160,7 @@ const Header = () => {
                                 color: 'inherit'
                             }}
                         >
-                            <PsychologyIcon sx={{ mr: 1, fontSize: 32 }} />
+                            <AutoAwesomeIcon sx={{ mr: 1, fontSize: 32 }} />
                             <Typography
                                 variant="h6"
                                 noWrap
@@ -328,6 +337,17 @@ const Header = () => {
                                     
                                     <MenuItem 
                                         component={RouterLink} 
+                                        to="/test/comprehensive"
+                                        onClick={handleMenuClose}
+                                    >
+                                        <ListItemIcon>
+                                            <AutoAwesomeIcon fontSize="small" sx={{ color: '#764ba2' }} />
+                                        </ListItemIcon>
+                                        <ListItemText>Комплексный тест</ListItemText>
+                                    </MenuItem>
+                                    
+                                    <MenuItem 
+                                        component={RouterLink} 
                                         to="/test/klimov"
                                         onClick={handleMenuClose}
                                     >
@@ -394,18 +414,20 @@ const Header = () => {
                                         <ListItemText>История тестов</ListItemText>
                                     </MenuItem>
                                     
-                                    <MenuItem 
-                                        component={RouterLink} 
-                                        to="/favorites"
-                                        onClick={handleMenuClose}
-                                    >
-                                        <ListItemIcon>
-                                            <FavoriteIcon fontSize="small" />
-                                        </ListItemIcon>
-                                        <ListItemText>Избранное</ListItemText>
-                                    </MenuItem>
+                                    {user && (
+                                        <MenuItem 
+                                            component={RouterLink} 
+                                            to="/favorites"
+                                            onClick={handleMenuClose}
+                                        >
+                                            <ListItemIcon>
+                                                <FavoriteIcon fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText>Избранное</ListItemText>
+                                        </MenuItem>
+                                    )}
                                     
-                                    {user.isAdmin && (
+                                    {user?.isAdmin && (
                                         <MenuItem 
                                             component={RouterLink} 
                                             to="/admin"
@@ -505,11 +527,32 @@ const Header = () => {
                             <ListItemText>Колледжи</ListItemText>
                         </MenuItem>
                         
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/nearby"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/nearby'}
+                        >
+                            <ListItemText>Рядом со мной</ListItemText>
+                        </MenuItem>
+                        
                         <Divider />
                         
                         <Typography variant="caption" sx={{ px: 2, py: 1, color: 'text.secondary', display: 'block' }}>
                             ТЕСТЫ
                         </Typography>
+                        
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/test/comprehensive"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/test/comprehensive'}
+                        >
+                            <ListItemIcon>
+                                <AutoAwesomeIcon sx={{ color: '#764ba2' }} />
+                            </ListItemIcon>
+                            <ListItemText primary="Комплексный тест" secondary="5 методик за 40 вопросов" />
+                        </MenuItem>
                         
                         <MenuItem 
                             component={RouterLink} 
