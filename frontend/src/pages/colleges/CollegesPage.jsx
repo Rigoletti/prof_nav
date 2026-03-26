@@ -48,6 +48,9 @@ const API_URL = 'http://localhost:5000/api';
 const MotionCard = motion(Card);
 const MotionBox = motion(Box);
 
+/** Единая минимальная высота карточек колледжа в сетке */
+const COLLEGE_CARD_MIN_HEIGHT = 440;
+
 const CollegesPage = () => {
     const theme = useTheme();
     const [colleges, setColleges] = useState([]);
@@ -460,18 +463,29 @@ const CollegesPage = () => {
                         <AnimatePresence>
                             <Box sx={{ 
                                 display: 'grid',
+                                alignItems: 'stretch',
                                 gridTemplateColumns: {
-                                    xs: '1fr',
-                                    md: 'repeat(2, 1fr)',
-                                    lg: 'repeat(3, 1fr)'
+                                    xs: 'minmax(0, 1fr)',
+                                    md: 'repeat(2, minmax(0, 1fr))',
+                                    lg: 'repeat(3, minmax(0, 1fr))',
                                 },
                                 gap: 3,
-                                width: '100%'
+                                width: '100%',
                             }}>
                                 {colleges.length > 0 ? (
                                     colleges.map((college, index) => (
-                                        <MotionCard
+                                        <Box
                                             key={college._id}
+                                            sx={{
+                                                display: 'flex',
+                                                minWidth: 0,
+                                                maxWidth: '100%',
+                                                width: '100%',
+                                                alignSelf: 'stretch',
+                                                boxSizing: 'border-box',
+                                            }}
+                                        >
+                                        <MotionCard
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -20 }}
@@ -482,14 +496,20 @@ const CollegesPage = () => {
                                             }}
                                             sx={{ 
                                                 width: '100%',
+                                                maxWidth: '100%',
+                                                minWidth: 0,
+                                                flex: 1,
                                                 display: 'flex', 
                                                 flexDirection: 'column',
+                                                boxSizing: 'border-box',
+                                                overflow: 'hidden',
                                                 borderRadius: 4,
                                                 border: '1px solid rgba(0,0,0,0.05)',
                                                 background: 'rgba(255,255,255,0.9)',
                                                 backdropFilter: 'blur(10px)',
                                                 transition: 'all 0.3s ease-in-out',
                                                 position: 'relative',
+                                                minHeight: COLLEGE_CARD_MIN_HEIGHT,
                                                 height: '100%',
                                                 '&::before': {
                                                     content: '""',
@@ -502,7 +522,20 @@ const CollegesPage = () => {
                                                 }
                                             }}
                                         >
-                                            <CardContent sx={{ p: 2.5, flex: 1 }}>
+                                            <CardContent sx={{
+                                                p: 2.5,
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                overflow: 'hidden',
+                                                minHeight: 0,
+                                                minWidth: 0,
+                                                width: '100%',
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box',
+                                                wordBreak: 'break-word',
+                                                overflowWrap: 'break-word',
+                                            }}>
                                                 {/* Header */}
                                                 <Box sx={{ mb: 1.5 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
@@ -530,7 +563,9 @@ const CollegesPage = () => {
                                                                         display: '-webkit-box',
                                                                         WebkitLineClamp: 2,
                                                                         WebkitBoxOrient: 'vertical',
-                                                                        cursor: 'help'
+                                                                        cursor: 'help',
+                                                                        wordBreak: 'break-word',
+                                                                        overflowWrap: 'anywhere',
                                                                     }}
                                                                 >
                                                                     {college.name}
@@ -623,7 +658,7 @@ const CollegesPage = () => {
                                                 </Box>
 
                                                 {/* Specialties */}
-                                                <Box sx={{ mb: 1.5 }}>
+                                                <Box sx={{ mb: 1.5, minHeight: 48, flexShrink: 0 }}>
                                                     <Typography 
                                                         variant="caption" 
                                                         sx={{ 
@@ -744,7 +779,7 @@ const CollegesPage = () => {
                                                 </Box>
                                             </CardContent>
                                             
-                                            <CardActions sx={{ p: 2.5, pt: 0 }}>
+                                            <CardActions sx={{ p: 2.5, pt: 0, mt: 'auto', flexShrink: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                                                 <Button
                                                     fullWidth
                                                     component={RouterLink}
@@ -767,6 +802,7 @@ const CollegesPage = () => {
                                                 </Button>
                                             </CardActions>
                                         </MotionCard>
+                                        </Box>
                                     ))
                                 ) : (
                                     <Box sx={{ gridColumn: '1/-1' }}>

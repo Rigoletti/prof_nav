@@ -192,33 +192,42 @@ const SpecialtyDetailPage = () => {
                     </Typography>
                     <Grid container spacing={2}>
                         {specialty.collegeNames.map((name, idx) => (
-                            <Grid item xs={12} sm={6} md={4} key={idx}>
+                            <Grid item xs={12} sm={6} md={4} key={idx} sx={{ display: 'flex', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                                 <Card 
                                     variant="outlined" 
                                     sx={{ 
-                                        height: '100%',
+                                        width: '100%',
+                                        maxWidth: '100%',
+                                        minWidth: 0,
+                                        flex: 1,
+                                        minHeight: 200,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        boxSizing: 'border-box',
+                                        overflow: 'hidden',
                                         '&:hover': {
                                             borderColor: 'primary.main',
                                             backgroundColor: alpha(theme.palette.primary.main, 0.02)
                                         }
                                     }}
                                 >
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                                    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, width: '100%', maxWidth: '100%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1, minHeight: 56 }}>
                                             <Avatar 
                                                 sx={{ 
                                                     bgcolor: '#6366f1',
                                                     width: 40,
-                                                    height: 40
+                                                    height: 40,
+                                                    flexShrink: 0
                                                 }}
                                             >
                                                 {name.charAt(0)}
                                             </Avatar>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3, minHeight: '3.9em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                                 {name}
                                             </Typography>
                                         </Box>
-                                        <Typography variant="body2" color="text.secondary">
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 'auto', minHeight: 40 }}>
                                             Информация о колледже не указана
                                         </Typography>
                                     </CardContent>
@@ -236,90 +245,103 @@ const SpecialtyDetailPage = () => {
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <BusinessIcon /> Доступна в {specialty.colleges.length} колледжах:
                 </Typography>
-                <Grid container spacing={3}>
+                    <Grid container spacing={3} sx={{ width: '100%' }}>
                     {specialty.colleges.map((college) => (
-                        <Grid item xs={12} md={6} key={college._id}>
+                        <Grid item xs={12} md={6} key={college._id} sx={{ display: 'flex', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                             <Card 
                                 variant="outlined" 
                                 sx={{ 
-                                    height: '100%',
+                                    width: '100%',
+                                    maxWidth: '100%',
+                                    minWidth: 0,
+                                    flex: 1,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    minHeight: 460,
+                                    boxSizing: 'border-box',
+                                    overflow: 'hidden',
                                     '&:hover': {
                                         borderColor: 'primary.main',
                                         backgroundColor: alpha(theme.palette.primary.main, 0.02)
                                     }
                                 }}
                             >
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
+                                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, width: '100%', maxWidth: '100%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1.5, flexShrink: 0 }}>
                                         <Avatar 
                                             sx={{ 
                                                 bgcolor: '#6366f1',
                                                 width: 56,
                                                 height: 56,
-                                                fontSize: '1.5rem'
+                                                fontSize: '1.5rem',
+                                                flexShrink: 0
                                             }}
                                         >
                                             {college.name.charAt(0)}
                                         </Avatar>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography variant="h6" component="h3" sx={{ fontWeight: 700, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3, minHeight: '3.9em', minWidth: 0, maxWidth: '100%', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                                 {college.name}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                                <LocationOnIcon fontSize="small" />
-                                                {college.city}, {college.region}
+                                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <LocationOnIcon fontSize="small" sx={{ flexShrink: 0 }} />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{college.city}, {college.region}</span>
                                             </Typography>
                                         </Box>
                                     </Box>
                                     
-                                    <Box sx={{ mb: 2 }}>
-                                        <Typography variant="body2">
-                                            <strong>Адрес:</strong> {college.address}
+                                    <Box sx={{ mb: 1.5, minHeight: 48, flexShrink: 0 }}>
+                                        <Typography component="div" variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.35 }}>
+                                            <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>Адрес: </Box>
+                                            {college.address || 'не указан'}
                                         </Typography>
                                     </Box>
                                     
-                                    <Grid container spacing={1}>
-                                        {college.phone && (
-                                            <Grid item xs={12} sm={6}>
-                                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    <PhoneIcon fontSize="small" />
-                                                    {college.phone}
-                                                </Typography>
-                                            </Grid>
-                                        )}
-                                        {college.email && (
-                                            <Grid item xs={12} sm={6}>
-                                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    <EmailIcon fontSize="small" />
-                                                    {college.email}
-                                                </Typography>
-                                            </Grid>
-                                        )}
-                                        {college.website && (
-                                            <Grid item xs={12}>
-                                                <Button
-                                                    href={college.website}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    startIcon={<LanguageIcon />}
-                                                    size="small"
-                                                    sx={{ mt: 1 }}
-                                                >
-                                                    Посетить сайт колледжа
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                    </Grid>
+                                    <Box sx={{ minHeight: 100, flexShrink: 0, mb: 1.5 }}>
+                                        <Grid container spacing={1}>
+                                            {college.phone && (
+                                                <Grid item xs={12} sm={6}>
+                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <PhoneIcon fontSize="small" sx={{ flexShrink: 0 }} />
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{college.phone}</span>
+                                                    </Typography>
+                                                </Grid>
+                                            )}
+                                            {college.email && (
+                                                <Grid item xs={12} sm={6}>
+                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <EmailIcon fontSize="small" sx={{ flexShrink: 0 }} />
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{college.email}</span>
+                                                    </Typography>
+                                                </Grid>
+                                            )}
+                                            {college.website && (
+                                                <Grid item xs={12}>
+                                                    <Button
+                                                        href={college.website}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        startIcon={<LanguageIcon />}
+                                                        size="small"
+                                                        sx={{ mt: 0.5 }}
+                                                    >
+                                                        Сайт колледжа
+                                                    </Button>
+                                                </Grid>
+                                            )}
+                                        </Grid>
+                                    </Box>
                                     
-                                    {college.description && (
-                                        <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {college.description.length > 150 
-                                                    ? `${college.description.substring(0, 150)}...` 
-                                                    : college.description}
-                                            </Typography>
-                                        </Box>
-                                    )}
+                                    <Box sx={{ mt: 'auto', pt: 2, borderTop: `1px solid ${theme.palette.divider}`, minHeight: 108, flexShrink: 0 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                                            О колледже
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>
+                                            {college.description && college.description.trim()
+                                                ? college.description
+                                                : 'Описание не указано.'}
+                                        </Typography>
+                                    </Box>
                                 </CardContent>
                             </Card>
                         </Grid>

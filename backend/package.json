@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.mjs",
-    "dev": "nodemon index.mjs"
+    "dev": "nodemon index.mjs",
+    "seed:russia": "node scripts/seedRussia.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

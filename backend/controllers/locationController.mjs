@@ -1,5 +1,38 @@
 import College from '../models/College.mjs';
 
+// Стабильный микро-сдвиг по городу и id (вместо Math.random — одинаковый результат на каждом запросе)
+const stableOffset = (city, id) => {
+    const s = `${city}|${id}`;
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) + h) + s.charCodeAt(i);
+    }
+    const latJ = (Math.abs(h) % 2000 - 1000) / 130000;
+    const lngJ = (Math.abs(h >> 12) % 2000 - 1000) / 130000;
+    return { latJ, lngJ };
+};
+
+// «г. Альметьевск», «город Казань» → ключ как в словаре
+const normalizeCityKey = (city) => {
+    if (!city) return '';
+    let s = String(city).trim();
+    s = s.replace(/^г\.?\s+/i, '').replace(/^город\s+/i, '').trim();
+    return s;
+};
+
+// Грубая привязка города вне словаря к точке в пределах РФ (детерминированно по названию)
+const approxCoordsForUnknownCity = (city) => {
+    const str = (city || 'unknown').trim();
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) + h) + str.charCodeAt(i);
+    }
+    return {
+        lat: 45 + (Math.abs(h) % 1000) / 1000 * 20,
+        lng: 30 + (Math.abs(h >> 10) % 1000) / 1000 * 80
+    };
+};
+
 // Расчет расстояния между двумя точками по формуле гаверсинуса (в километрах)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Радиус Земли в километрах
@@ -19,12 +52,7 @@ export const getNearbyColleges = async (req, res) => {
     try {
         const { lat, lng, radius = 50, limit = 20, page = 1 } = req.query;
         
-        console.log('🔍 Получен запрос на ближайшие колледжи:');
-        console.log('📌 Координаты:', { lat, lng });
-        console.log('📏 Радиус:', radius, 'км');
-        
         if (!lat || !lng) {
-            console.log('❌ Ошибка: нет координат');
             return res.status(400).json({
                 success: false,
                 message: 'Необходимо указать координаты (lat и lng)'
@@ -42,8 +70,6 @@ export const getNearbyColleges = async (req, res) => {
             path: 'specialties',
             select: 'name code'
         });
-
-        console.log(`📚 Всего колледжей в базе: ${colleges.length}`);
 
         // Если у колледжей нет координат, добавляем тестовые
         const collegesWithCoords = colleges.map(college => {
@@ -70,25 +96,34 @@ export const getNearbyColleges = async (req, res) => {
                     'Волгоград': { lat: 48.7071, lng: 44.5169 },
                     'Краснодар': { lat: 45.0355, lng: 38.9753 },
                     'Саратов': { lat: 51.5336, lng: 46.0342 },
-                    'Тюмень': { lat: 57.1522, lng: 65.5272 }
+                    'Тюмень': { lat: 57.1522, lng: 65.5272 },
+                    'Альметьевск': { lat: 54.9014, lng: 52.2973 },
+                    'Иркутск': { lat: 52.2864, lng: 104.305 },
+                    'Хабаровск': { lat: 48.4802, lng: 135.0719 },
+                    'Ярославль': { lat: 57.6266, lng: 39.8978 },
+                    'Ульяновск': { lat: 54.3142, lng: 48.4031 }
                 };
 
-                const cityCoord = cityCoordinates[collegeObj.city];
+                const rawCity = collegeObj.city ? String(collegeObj.city).trim() : '';
+                const cityKey = normalizeCityKey(collegeObj.city);
+                const cityCoord = cityKey
+                    ? (cityCoordinates[cityKey] || cityCoordinates[rawCity])
+                    : null;
+                const idStr = collegeObj._id ? String(collegeObj._id) : (collegeObj.name || '');
+
                 if (cityCoord) {
-                    // Добавляем небольшую случайную вариацию
-                    const variation = 0.05; // около 5 км вариации
+                    const { latJ, lngJ } = stableOffset(cityKey, idStr);
                     collegeObj.location = {
-                        lat: cityCoord.lat + (Math.random() - 0.5) * variation,
-                        lng: cityCoord.lng + (Math.random() - 0.5) * variation
+                        lat: cityCoord.lat + latJ,
+                        lng: cityCoord.lng + lngJ
                     };
-                    console.log(`📍 Добавлены координаты для ${collegeObj.name}:`, collegeObj.location);
                 } else {
-                    // Если город не в списке, генерируем случайные координаты
+                    const base = approxCoordsForUnknownCity(cityKey);
+                    const { latJ, lngJ } = stableOffset(cityKey || 'unknown', idStr);
                     collegeObj.location = {
-                        lat: 55.0 + (Math.random() - 0.5) * 20,
-                        lng: 50.0 + (Math.random() - 0.5) * 40
+                        lat: base.lat + latJ,
+                        lng: base.lng + lngJ
                     };
-                    console.log(`🔄 Случайные координаты для ${collegeObj.name}:`, collegeObj.location);
                 }
             }
             return collegeObj;
@@ -110,37 +145,6 @@ export const getNearbyColleges = async (req, res) => {
             })
             .filter(college => college.distance <= radiusKm)
             .sort((a, b) => a.distance - b.distance);
-
-        console.log(`✅ Найдено колледжей в радиусе ${radiusKm}км: ${collegesWithDistance.length}`);
-        
-        if (collegesWithDistance.length > 0) {
-            console.log('📊 Первые 3 колледжа:');
-            collegesWithDistance.slice(0, 3).forEach(c => {
-                console.log(`   - ${c.name}: ${c.distance} км`);
-            });
-        } else {
-            console.log('⚠️ Колледжи не найдены в указанном радиусе');
-            
-            // Для отладки покажем несколько колледжей с их расстоянием
-            const allWithDistance = collegesWithCoords
-                .map(college => {
-                    const distance = calculateDistance(
-                        latitude, 
-                        longitude, 
-                        college.location.lat, 
-                        college.location.lng
-                    );
-                    return {
-                        name: college.name,
-                        city: college.city,
-                        distance: Math.round(distance * 10) / 10
-                    };
-                })
-                .sort((a, b) => a.distance - b.distance)
-                .slice(0, 5);
-            
-            console.log('📌 Ближайшие колледжи (вне радиуса):', allWithDistance);
-        }
 
         // Пагинация
         const total = collegesWithDistance.length;
@@ -164,4 +168,4 @@ export const getNearbyColleges = async (req, res) => {
             message: 'Ошибка при получении ближайших колледжей: ' + error.message
         });
     }
-};
+}; 

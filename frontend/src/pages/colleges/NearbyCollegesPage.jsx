@@ -27,17 +27,14 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon,
     Divider,
     Tooltip,
     Avatar,
     Badge,
     Zoom,
     Fade,
-    Autocomplete
+    Autocomplete,
+    Stack
 } from '@mui/material';
 import {
     LocationOn,
@@ -45,12 +42,9 @@ import {
     School,
     Phone,
     Email,
-    Language,
     Refresh,
-    Error as ErrorIcon,
     Search,
     Clear,
-    AccountBalance,
     MenuBook,
     Speed,
     NearMe,
@@ -68,8 +62,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 const API_URL = 'http://localhost:5000/api';
 
-// Небольшой список популярных городов для быстрого выбора
-const POPULAR_CITIES = [
+const POPULAR_CITIES_FALLBACK = [
     'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
     'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
     'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград',
@@ -102,17 +95,44 @@ const NearbyCollegesPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredColleges, setFilteredColleges] = useState([]);
     
-    // Состояния для диалогов
     const [manualDialogOpen, setManualDialogOpen] = useState(false);
     const [cityDialogOpen, setCityDialogOpen] = useState(false);
     const [manualCoords, setManualCoords] = useState({ lat: '', lng: '' });
     const [selectedCity, setSelectedCity] = useState('');
+    const [citiesFromDb, setCitiesFromDb] = useState([]);
+    const [citiesLoading, setCitiesLoading] = useState(true);
 
-    // Функция для получения названия города по координатам (обратное геокодирование)
+    const citySearchOptions =
+        citiesFromDb.length > 0 ? citiesFromDb : POPULAR_CITIES_FALLBACK;
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_URL}/colleges?page=1&limit=1`);
+                const data = await res.json();
+                if (cancelled) return;
+                if (data.success && Array.isArray(data.filters?.cities)) {
+                    const sorted = [...data.filters.cities]
+                        .filter((c) => c != null && String(c).trim())
+                        .map((c) => String(c).trim())
+                        .sort((a, b) => a.localeCompare(b, 'ru'));
+                    setCitiesFromDb(sorted);
+                }
+            } catch (e) {
+                console.error('Не удалось загрузить города колледжей:', e);
+            } finally {
+                if (!cancelled) setCitiesLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const getCityFromCoords = async (lat, lng) => {
         try {
             setLoadingCityName(true);
-            // Используем Nominatim API (OpenStreetMap) для обратного геокодирования
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ru`,
                 {
@@ -124,7 +144,6 @@ const NearbyCollegesPage = () => {
             const data = await response.json();
             
             if (data && data.address) {
-                // Пробуем получить город из разных полей
                 const city = data.address.city || 
                            data.address.town || 
                            data.address.village || 
@@ -133,7 +152,6 @@ const NearbyCollegesPage = () => {
                            'Неизвестный населенный пункт';
                 setCityName(city);
                 
-                // Обновляем название местоположения
                 setLocation(prev => ({
                     ...prev,
                     name: city
@@ -147,7 +165,6 @@ const NearbyCollegesPage = () => {
         }
     };
 
-    // Получение текущего местоположения с принудительным обновлением
     const getCurrentLocation = () => {
         setLoadingLocation(true);
         setLocationError(null);
@@ -160,11 +177,9 @@ const NearbyCollegesPage = () => {
             return;
         }
 
-        // Очищаем старые данные
         setColleges([]);
         setFilteredColleges([]);
 
-        // Используем watchPosition для принудительного получения новых координат
         const watchId = navigator.geolocation.watchPosition(
             async (position) => {
                 const newLocation = {
@@ -172,17 +187,11 @@ const NearbyCollegesPage = () => {
                     lng: position.coords.longitude,
                     name: 'Определяем город...'
                 };
-                console.log('Получены новые координаты:', newLocation);
                 
                 setLocation(newLocation);
-                
-                // Получаем название города по координатам
                 await getCityFromCoords(position.coords.latitude, position.coords.longitude);
-                
                 setLoadingLocation(false);
                 setLocationError(null);
-                
-                // Останавливаем watch после получения координат
                 navigator.geolocation.clearWatch(watchId);
             },
             (error) => {
@@ -203,21 +212,17 @@ const NearbyCollegesPage = () => {
                 
                 setLocationError(errorMessage);
                 setLoadingLocation(false);
-                // Предлагаем выбрать город
                 setCityDialogOpen(true);
-                
-                // Останавливаем watch в случае ошибки
                 navigator.geolocation.clearWatch(watchId);
             },
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
-                maximumAge: 0  // 0 - не использовать кэшированные данные
+                maximumAge: 0
             }
         );
     };
 
-    // Альтернативный метод с проверкой разрешений
     const getCurrentLocationWithPermission = () => {
         setLoadingLocation(true);
         setLocationError(null);
@@ -230,16 +235,11 @@ const NearbyCollegesPage = () => {
             return;
         }
 
-        // Очищаем старые данные
         setColleges([]);
         setFilteredColleges([]);
 
-        // Проверяем, поддерживается ли API permissions
         if (navigator.permissions && navigator.permissions.query) {
             navigator.permissions.query({ name: 'geolocation' }).then((permissionStatus) => {
-                console.log('Статус разрешения геолокации:', permissionStatus.state);
-                
-                // Всегда запрашиваем новые координаты, независимо от статуса
                 navigator.geolocation.getCurrentPosition(
                     async (position) => {
                         const newLocation = {
@@ -247,7 +247,6 @@ const NearbyCollegesPage = () => {
                             lng: position.coords.longitude,
                             name: 'Определяем город...'
                         };
-                        console.log('Получены новые координаты:', newLocation);
                         
                         setLocation(newLocation);
                         await getCityFromCoords(position.coords.latitude, position.coords.longitude);
@@ -265,7 +264,6 @@ const NearbyCollegesPage = () => {
                 );
             });
         } else {
-            // Если API permissions не поддерживается, просто запрашиваем
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const newLocation = {
@@ -273,7 +271,6 @@ const NearbyCollegesPage = () => {
                         lng: position.coords.longitude,
                         name: 'Определяем город...'
                     };
-                    console.log('Получены новые координаты:', newLocation);
                     
                     setLocation(newLocation);
                     await getCityFromCoords(position.coords.latitude, position.coords.longitude);
@@ -291,7 +288,6 @@ const NearbyCollegesPage = () => {
         }
     };
 
-    // Обработка ошибок геолокации
     const handleLocationError = (error) => {
         console.error('Ошибка геолокации:', error);
         let errorMessage = 'Не удалось определить местоположение';
@@ -313,11 +309,9 @@ const NearbyCollegesPage = () => {
         setCityDialogOpen(true);
     };
 
-    // Установка местоположения по выбранному городу
     const setLocationByCity = async (city) => {
         setLoadingLocation(true);
         try {
-            // Геокодирование - получаем координаты по названию города
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1&accept-language=ru`,
                 {
@@ -329,7 +323,6 @@ const NearbyCollegesPage = () => {
             const data = await response.json();
             
             if (data && data.length > 0) {
-                // Сбрасываем старые данные
                 setColleges([]);
                 setFilteredColleges([]);
                 
@@ -352,7 +345,6 @@ const NearbyCollegesPage = () => {
         }
     };
 
-    // Установка местоположения по ручным координатам
     const setManualLocation = async () => {
         const lat = parseFloat(manualCoords.lat);
         const lng = parseFloat(manualCoords.lng);
@@ -367,7 +359,6 @@ const NearbyCollegesPage = () => {
             return;
         }
 
-        // Сбрасываем старые данные
         setColleges([]);
         setFilteredColleges([]);
 
@@ -380,19 +371,15 @@ const NearbyCollegesPage = () => {
         setManualDialogOpen(false);
         setLocationError(null);
         
-        // Пытаемся определить город по координатам
         await getCityFromCoords(lat, lng);
     };
 
-    // Загрузка ближайших колледжей
     const fetchNearbyColleges = async () => {
         if (!location) return;
 
         try {
             setLoading(true);
             setError(null);
-
-            console.log('Загрузка колледжей для координат:', location);
 
             const params = new URLSearchParams({
                 lat: location.lat,
@@ -404,8 +391,6 @@ const NearbyCollegesPage = () => {
 
             const response = await fetch(`${API_URL}/location/nearby?${params}`);
             const data = await response.json();
-
-            console.log('Ответ от сервера:', data);
 
             if (data.success) {
                 let sortedColleges = [...data.colleges];
@@ -434,7 +419,6 @@ const NearbyCollegesPage = () => {
         }
     };
 
-    // Поиск по колледжам
     useEffect(() => {
         if (colleges.length > 0) {
             const filtered = colleges.filter(college => 
@@ -446,14 +430,12 @@ const NearbyCollegesPage = () => {
         }
     }, [searchQuery, colleges]);
 
-    // Загрузка при изменении местоположения или фильтров
     useEffect(() => {
         if (location) {
             fetchNearbyColleges();
         }
     }, [location, filters.page, filters.radius, filters.sortBy]);
 
-    // Автоматическое определение местоположения при загрузке страницы
     useEffect(() => {
         getCurrentLocationWithPermission();
     }, []);
@@ -479,7 +461,7 @@ const NearbyCollegesPage = () => {
         if (distance < 1) {
             return `${Math.round(distance * 1000)} м`;
         }
-        return `${distance} км`;
+        return `${distance.toFixed(1)} км`;
     };
 
     const getLocationIcon = () => {
@@ -508,7 +490,6 @@ const NearbyCollegesPage = () => {
         }
     };
 
-    // Если местоположение не определено и нет ошибки
     if (!location && !locationError && !loadingLocation) {
         return (
             <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -562,143 +543,72 @@ const NearbyCollegesPage = () => {
     }
 
     return (
-        <Box sx={{ minHeight: '100vh', pb: 8 }}>
-            {/* Hero секция */}
+        <Box sx={{ minHeight: '100vh', pb: 8, bgcolor: '#f5f5f5' }}>
             <Box 
                 sx={{ 
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     color: 'white',
-                    pt: 6,
-                    pb: 8,
+                    pt: 4,
+                    pb: 5,
                     mb: 4,
                     position: 'relative',
                     overflow: 'hidden',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
-                    }
                 }}
             >
                 <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                        <Badge
-                            overlap="circular"
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                            badgeContent={
-                                <Tooltip title={getLocationTypeText()}>
-                                    <Avatar sx={{ width: 24, height: 24, bgcolor: 'white' }}>
-                                        {getLocationIcon()}
-                                    </Avatar>
-                                </Tooltip>
-                            }
-                        >
-                            <Avatar sx={{ width: 64, height: 64, bgcolor: 'rgba(255,255,255,0.2)' }}>
-                                <NearMe sx={{ fontSize: 32 }} />
-                            </Avatar>
-                        </Badge>
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255,255,255,0.2)' }}>
+                            <NearMe sx={{ fontSize: 32 }} />
+                        </Avatar>
                         <Box>
-                            <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>
-                                Колледжи рядом с вами
+                            <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+                                Колледжи рядом
                             </Typography>
-                            <Typography variant="h6" sx={{ opacity: 0.9, mt: 1 }}>
+                            <Typography variant="body1" sx={{ opacity: 0.9 }}>
                                 {loadingCityName ? (
                                     <>Определяем город...</>
                                 ) : (
                                     <>
-                                        {location?.name || `${location?.lat?.toFixed(4)}, ${location?.lng?.toFixed(4)}`}
+                                        {location?.name || `${location?.lat?.toFixed(2)}, ${location?.lng?.toFixed(2)}`}
                                     </>
                                 )}
                             </Typography>
                         </Box>
-                    </Box>
+                    </Stack>
 
-                    <Paper sx={{ 
-                        p: 2, 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: 2, 
-                        bgcolor: 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(10px)',
-                        borderRadius: 3,
-                        flexWrap: 'wrap',
-                        mt: 2
-                    }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {getLocationIcon()}
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                    {loadingCityName ? 'Определение...' : (location?.name || `${location?.lat?.toFixed(4)}, ${location?.lng?.toFixed(4)}`)}
-                                </Typography>
-                            </Box>
-                            <Chip 
-                                label={getLocationTypeText()}
-                                size="small"
-                                sx={{ 
-                                    bgcolor: 'rgba(255,255,255,0.2)',
-                                    color: 'white',
-                                    '& .MuiChip-label': { px: 1 }
-                                }}
-                            />
-                        </Box>
-                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.3)' }} />
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Tooltip title="Определить автоматически заново">
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<Refresh />}
-                                    onClick={getCurrentLocationWithPermission}
-                                    sx={{ 
-                                        color: 'white', 
-                                        borderColor: 'rgba(255,255,255,0.5)',
-                                        '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' }
-                                    }}
-                                >
-                                    Обновить
-                                </Button>
-                            </Tooltip>
-                            <Tooltip title="Выбрать город">
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<Place />}
-                                    onClick={() => setCityDialogOpen(true)}
-                                    sx={{ 
-                                        color: 'white', 
-                                        borderColor: 'rgba(255,255,255,0.5)',
-                                        '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' }
-                                    }}
-                                >
-                                    Город
-                                </Button>
-                            </Tooltip>
-                            <Tooltip title="Ввести координаты">
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<Edit />}
-                                    onClick={() => setManualDialogOpen(true)}
-                                    sx={{ 
-                                        color: 'white', 
-                                        borderColor: 'rgba(255,255,255,0.5)',
-                                        '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' }
-                                    }}
-                                >
-                                    Координаты
-                                </Button>
-                            </Tooltip>
-                        </Box>
-                    </Paper>
+                    <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                        <Chip 
+                            icon={getLocationIcon()} 
+                            label={getLocationTypeText()}
+                            size="small"
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                        />
+                        <Chip 
+                            icon={<Refresh />} 
+                            label="Обновить"
+                            size="small"
+                            onClick={getCurrentLocationWithPermission}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer' }}
+                        />
+                        <Chip 
+                            icon={<Place />} 
+                            label="Выбрать город"
+                            size="small"
+                            onClick={() => setCityDialogOpen(true)}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer' }}
+                        />
+                        <Chip 
+                            icon={<Edit />} 
+                            label="Ввести координаты"
+                            size="small"
+                            onClick={() => setManualDialogOpen(true)}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer' }}
+                        />
+                    </Stack>
                 </Container>
             </Box>
 
             <Container maxWidth="lg">
-                {/* Диалог выбора города */}
                 <Dialog 
                     open={cityDialogOpen} 
                     onClose={() => setCityDialogOpen(false)}
@@ -715,15 +625,36 @@ const NearbyCollegesPage = () => {
                     <DialogContent>
                         <Autocomplete
                             freeSolo
-                            options={POPULAR_CITIES}
+                            loading={citiesLoading}
+                            options={citySearchOptions}
                             value={selectedCity}
                             onChange={(event, newValue) => {
-                                setSelectedCity(newValue);
+                                setSelectedCity(newValue ?? '');
                             }}
+                            onInputChange={(event, newInputValue) => {
+                                setSelectedCity(newInputValue);
+                            }}
+                            filterOptions={(opts, state) => {
+                                const q = state.inputValue.trim().toLowerCase();
+                                if (!q) return opts;
+                                return opts.filter((o) =>
+                                    o.toLowerCase().includes(q)
+                                );
+                            }}
+                            noOptionsText={
+                                citiesLoading
+                                    ? 'Загрузка городов…'
+                                    : 'Нет городов с таким названием'
+                            }
+                            ListboxProps={{ style: { maxHeight: 280 } }}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
-                                    placeholder="Введите название города"
+                                    placeholder={
+                                        citiesFromDb.length
+                                            ? 'Поиск по городам из базы'
+                                            : 'Введите название города'
+                                    }
                                     sx={{ mt: 2, mb: 2 }}
                                     InputProps={{
                                         ...params.InputProps,
@@ -738,10 +669,12 @@ const NearbyCollegesPage = () => {
                         />
                         
                         <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                            Популярные города:
+                            {citiesFromDb.length > 0
+                                ? 'Города, где есть колледжи в базе:'
+                                : 'Популярные города:'}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {POPULAR_CITIES.slice(0, 10).map((city) => (
+                            {citySearchOptions.slice(0, 16).map((city) => (
                                 <Chip
                                     key={city}
                                     label={city}
@@ -767,7 +700,6 @@ const NearbyCollegesPage = () => {
                     </DialogActions>
                 </Dialog>
 
-                {/* Диалог ручного ввода координат */}
                 <Dialog 
                     open={manualDialogOpen} 
                     onClose={() => setManualDialogOpen(false)}
@@ -829,7 +761,7 @@ const NearbyCollegesPage = () => {
                                 Примеры координат популярных городов:
                             </Typography>
                             <Grid container spacing={1}>
-                                {POPULAR_CITIES.slice(0, 6).map((city) => (
+                                {citySearchOptions.slice(0, 6).map((city) => (
                                     <Grid item xs={6} sm={4} key={city}>
                                         <Chip 
                                             label={city}
@@ -878,13 +810,12 @@ const NearbyCollegesPage = () => {
                     </DialogActions>
                 </Dialog>
 
-                {/* Фильтры */}
-                <Paper sx={{ p: 3, mb: 4, borderRadius: 3 }}>
-                    <Grid container spacing={3} alignItems="center">
-                        <Grid item xs={12} md={4}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Speed color="primary" />
-                                <Typography variant="body2" color="text.secondary">
+                <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={5}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Speed fontSize="small" color="primary" />
+                                <Typography variant="body2">
                                     Радиус поиска: <strong>{filters.radius} км</strong>
                                 </Typography>
                             </Box>
@@ -896,32 +827,21 @@ const NearbyCollegesPage = () => {
                                 step={5}
                                 valueLabelDisplay="auto"
                                 valueLabelFormat={value => `${value} км`}
-                                sx={{
-                                    color: 'primary.main',
-                                    '& .MuiSlider-thumb': {
-                                        '&:hover, &.Mui-focusVisible': {
-                                            boxShadow: `0 0 0 8px ${alpha(theme.palette.primary.main, 0.16)}`
-                                        }
-                                    }
-                                }}
+                                size="small"
                             />
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                                <Typography variant="caption" color="text.secondary">5 км</Typography>
-                                <Typography variant="caption" color="text.secondary">200 км</Typography>
-                            </Box>
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
+                        <Grid item xs={12} md={3}>
+                            <FormControl fullWidth size="small">
                                 <InputLabel>Сортировка</InputLabel>
                                 <Select
                                     value={filters.sortBy}
                                     onChange={handleSortChange}
                                     label="Сортировка"
                                 >
-                                    <MenuItem value="distance">По расстоянию (ближе)</MenuItem>
-                                    <MenuItem value="name">По названию (А-Я)</MenuItem>
-                                    <MenuItem value="specialtiesCount">По количеству специальностей</MenuItem>
+                                    <MenuItem value="distance">По расстоянию</MenuItem>
+                                    <MenuItem value="name">По названию</MenuItem>
+                                    <MenuItem value="specialtiesCount">По кол-ву специальностей</MenuItem>
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -929,13 +849,14 @@ const NearbyCollegesPage = () => {
                         <Grid item xs={12} md={4}>
                             <TextField
                                 fullWidth
+                                size="small"
                                 placeholder="Поиск по названию или адресу..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <Search color="primary" />
+                                            <Search fontSize="small" />
                                         </InputAdornment>
                                     ),
                                     endAdornment: searchQuery && (
@@ -951,10 +872,9 @@ const NearbyCollegesPage = () => {
                     </Grid>
                 </Paper>
 
-                {/* Результаты */}
                 {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-                        <CircularProgress size={60} thickness={4} />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                        <CircularProgress size={50} thickness={4} />
                     </Box>
                 ) : error ? (
                     <Fade in>
@@ -973,127 +893,215 @@ const NearbyCollegesPage = () => {
                 ) : (
                     <>
                         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Typography variant="h6">
-                                    Найдено: <strong>{filteredColleges.length}</strong> {filteredColleges.length === 1 ? 'колледж' : 
-                                    filteredColleges.length > 1 && filteredColleges.length < 5 ? 'колледжа' : 'колледжей'}
-                                </Typography>
-                                {filteredColleges.length > 0 && (
-                                    <Chip
-                                        icon={<LocationOn />}
-                                        label={`в радиусе ${filters.radius} км`}
-                                        size="small"
-                                        color="primary"
-                                        variant="outlined"
-                                    />
-                                )}
-                            </Box>
+                            <Typography variant="body2" color="text.secondary">
+                                Найдено: <strong>{filteredColleges.length}</strong> учебных заведений
+                            </Typography>
                             
                             {filteredColleges.length === 0 && (
                                 <Button
-                                    variant="contained"
+                                    variant="outlined"
+                                    size="small"
                                     onClick={() => setFilters(prev => ({ ...prev, radius: prev.radius + 50 }))}
                                     startIcon={<ZoomIn />}
                                 >
-                                    Увеличить радиус до {filters.radius + 50} км
+                                    Увеличить радиус
                                 </Button>
                             )}
                         </Box>
 
-                        <Grid container spacing={3}>
+                        <Grid container spacing={2.5}>
                             {filteredColleges.length > 0 ? (
                                 filteredColleges.map((college, index) => (
-                                    <Grid item xs={12} md={6} lg={4} key={college._id}>
-                                        <Fade in timeout={500 + index * 100}>
+                                    <Grid
+                                        item
+                                        xs={12}
+                                        sm={6}
+                                        md={4}
+                                        key={college._id}
+                                        sx={{ 
+                                            display: 'flex',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        <Fade in timeout={300 + index * 50}>
                                             <Card 
                                                 sx={{ 
-                                                    height: '100%', 
+                                                    width: '100%',
+                                                    maxWidth: 360,
                                                     display: 'flex', 
                                                     flexDirection: 'column',
-                                                    transition: 'transform 0.3s, box-shadow 0.3s',
+                                                    transition: 'all 0.2s',
                                                     '&:hover': {
-                                                        transform: 'translateY(-4px)',
-                                                        boxShadow: theme.shadows[10]
+                                                        transform: 'translateY(-2px)',
+                                                        boxShadow: theme.shadows[4]
                                                     }
                                                 }}
                                             >
-                                                <CardContent sx={{ flex: 1 }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                                        <Tooltip title={`Расстояние: ${getDistanceText(college.distance)}`}>
-                                                            <Chip
-                                                                icon={<LocationOn />}
-                                                                label={getDistanceText(college.distance)}
-                                                                size="small"
-                                                                color={college.distance < 10 ? "success" : college.distance < 30 ? "primary" : "default"}
-                                                                sx={{ fontWeight: 600 }}
-                                                            />
-                                                        </Tooltip>
+                                                <CardContent sx={{ 
+                                                    flex: 1, 
+                                                    p: 2,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: 1
+                                                }}>
+                                                    {/* Верхняя панель с расстоянием */}
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                        <Chip
+                                                            icon={<LocationOn sx={{ fontSize: 12 }} />}
+                                                            label={getDistanceText(college.distance)}
+                                                            size="small"
+                                                            color={college.distance < 10 ? "success" : "primary"}
+                                                            sx={{ 
+                                                                height: 22, 
+                                                                fontSize: '0.65rem',
+                                                                fontWeight: 600,
+                                                                '& .MuiChip-icon': { fontSize: 12, ml: 0.5 }
+                                                            }}
+                                                        />
                                                         {college.specialties && college.specialties.length > 0 && (
-                                                            <Tooltip title="Количество специальностей">
-                                                                <Chip
-                                                                    icon={<MenuBook />}
-                                                                    label={college.specialties.length}
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                />
-                                                            </Tooltip>
+                                                            <Chip
+                                                                icon={<MenuBook sx={{ fontSize: 12 }} />}
+                                                                label={college.specialties.length}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{ height: 22, fontSize: '0.65rem' }}
+                                                            />
                                                         )}
                                                     </Box>
 
-                                                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, lineHeight: 1.3 }}>
+                                                    {/* Название колледжа */}
+                                                    <Typography
+                                                        variant="subtitle2"
+                                                        component="h3"
+                                                        sx={{
+                                                            fontWeight: 700,
+                                                            fontSize: '0.9rem',
+                                                            lineHeight: 1.3,
+                                                            minHeight: '2.6em',
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            wordBreak: 'break-word',
+                                                            mb: 0.5
+                                                        }}
+                                                        title={college.name}
+                                                    >
                                                         {college.name}
                                                     </Typography>
                                                     
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                                        <Room color="action" fontSize="small" />
-                                                        <Typography variant="body2" color="text.secondary">
+                                                    {/* Город и регион */}
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <Room sx={{ fontSize: 12, color: 'text.secondary', flexShrink: 0 }} />
+                                                        <Typography 
+                                                            variant="caption" 
+                                                            color="text.secondary" 
+                                                            sx={{ 
+                                                                fontSize: '0.65rem',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                flex: 1
+                                                            }}
+                                                            title={`${college.city}, ${college.region}`}
+                                                        >
                                                             {college.city}, {college.region}
                                                         </Typography>
                                                     </Box>
 
+                                                    {/* Адрес */}
                                                     {college.address && college.address !== 'Адрес не указан' && (
-                                                        <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', fontSize: '0.9rem' }}>
+                                                        <Typography 
+                                                            variant="caption" 
+                                                            sx={{ 
+                                                                color: 'text.secondary', 
+                                                                fontSize: '0.65rem',
+                                                                lineHeight: 1.3,
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                minHeight: '2.6em'
+                                                            }}
+                                                            title={college.address}
+                                                        >
                                                             📍 {college.address}
                                                         </Typography>
                                                     )}
 
-                                                    {college.phone && (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                            <Phone fontSize="small" color="success" />
-                                                            <Typography variant="body2">{college.phone}</Typography>
-                                                        </Box>
-                                                    )}
+                                                    {/* Контакты */}
+                                                    <Stack spacing={0.5} sx={{ mt: 'auto' }}>
+                                                        {college.phone && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                                                                <Phone sx={{ fontSize: 11, color: 'success.main', flexShrink: 0 }} />
+                                                                <Typography 
+                                                                    variant="caption" 
+                                                                    sx={{ 
+                                                                        fontSize: '0.65rem',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                        flex: 1
+                                                                    }}
+                                                                    title={college.phone}
+                                                                >
+                                                                    {college.phone}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                        {college.email && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                                                                <Email sx={{ fontSize: 11, color: 'info.main', flexShrink: 0 }} />
+                                                                <Typography 
+                                                                    variant="caption" 
+                                                                    sx={{ 
+                                                                        fontSize: '0.65rem',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                        flex: 1
+                                                                    }}
+                                                                    title={college.email}
+                                                                >
+                                                                    {college.email}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                    </Stack>
 
-                                                    {college.email && (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                            <Email fontSize="small" color="info" />
-                                                            <Typography variant="body2">{college.email}</Typography>
-                                                        </Box>
-                                                    )}
-
+                                                    {/* Специальности */}
                                                     {college.specialties && college.specialties.length > 0 && (
-                                                        <Box sx={{ mt: 2 }}>
-                                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                        <Box>
+                                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.6rem' }}>
                                                                 Специальности:
                                                             </Typography>
                                                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                                                                {college.specialties.slice(0, 3).map((spec, idx) => (
+                                                                {college.specialties.slice(0, 2).map((spec, idx) => (
                                                                     <Chip
                                                                         key={idx}
                                                                         label={spec.name}
                                                                         size="small"
+                                                                        title={spec.name}
                                                                         sx={{
-                                                                            fontSize: '0.7rem',
+                                                                            fontSize: '0.55rem',
+                                                                            height: 18,
+                                                                            maxWidth: 'calc(50% - 4px)',
                                                                             backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                                                            color: theme.palette.primary.main
+                                                                            '& .MuiChip-label': { 
+                                                                                px: 0.75,
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }
                                                                         }}
                                                                     />
                                                                 ))}
-                                                                {college.specialties.length > 3 && (
+                                                                {college.specialties.length > 2 && (
                                                                     <Chip
-                                                                        label={`+${college.specialties.length - 3}`}
+                                                                        label={`+${college.specialties.length - 2}`}
                                                                         size="small"
-                                                                        sx={{ fontSize: '0.7rem' }}
+                                                                        sx={{ fontSize: '0.55rem', height: 18, flexShrink: 0 }}
                                                                     />
                                                                 )}
                                                             </Box>
@@ -1101,16 +1109,19 @@ const NearbyCollegesPage = () => {
                                                     )}
                                                 </CardContent>
                                                 
-                                                <CardActions sx={{ p: 2, pt: 0 }}>
+                                                <CardActions sx={{ p: 1.5, pt: 0 }}>
                                                     <Button
                                                         fullWidth
                                                         component={RouterLink}
                                                         to={`/colleges/${college._id}`}
                                                         variant="contained"
-                                                        startIcon={<Directions />}
+                                                        size="small"
+                                                        startIcon={<Directions sx={{ fontSize: 14 }} />}
                                                         sx={{ 
-                                                            borderRadius: 2,
-                                                            textTransform: 'none'
+                                                            borderRadius: 1.5,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.75rem',
+                                                            py: 0.5
                                                         }}
                                                     >
                                                         Подробнее
@@ -1123,42 +1134,42 @@ const NearbyCollegesPage = () => {
                             ) : (
                                 <Grid item xs={12}>
                                     <Fade in>
-                                        <Paper sx={{ p: 8, textAlign: 'center' }}>
-                                            <School sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                                            <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
+                                        <Paper sx={{ p: 6, textAlign: 'center' }}>
+                                            <School sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                                            <Typography variant="h6" gutterBottom>
                                                 {searchQuery ? 'Ничего не найдено' : 'Колледжи не найдены'}
                                             </Typography>
-                                            <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}>
+                                            <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto', fontSize: '0.9rem' }}>
                                                 {searchQuery 
                                                     ? `По запросу "${searchQuery}" ничего не найдено. Попробуйте изменить поисковый запрос.`
-                                                    : `В радиусе ${filters.radius} км от выбранного местоположения нет колледжей. Попробуйте увеличить радиус поиска или выбрать другой город.`
+                                                    : `В радиусе ${filters.radius} км нет колледжей. Попробуйте увеличить радиус поиска.`
                                                 }
                                             </Typography>
-                                            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                                            <Stack direction="row" spacing={2} justifyContent="center">
                                                 {searchQuery && (
                                                     <Button 
                                                         variant="contained" 
                                                         onClick={clearSearch}
-                                                        startIcon={<Clear />}
+                                                        size="small"
                                                     >
                                                         Сбросить поиск
                                                     </Button>
                                                 )}
                                                 <Button 
-                                                    variant={searchQuery ? "outlined" : "contained"}
+                                                    variant="outlined"
                                                     onClick={() => setFilters(prev => ({ ...prev, radius: prev.radius + 50 }))}
-                                                    startIcon={<ZoomIn />}
+                                                    size="small"
                                                 >
-                                                    Увеличить радиус до {filters.radius + 50} км
+                                                    Увеличить радиус
                                                 </Button>
                                                 <Button
                                                     variant="outlined"
                                                     onClick={() => setCityDialogOpen(true)}
-                                                    startIcon={<Place />}
+                                                    size="small"
                                                 >
-                                                    Выбрать другой город
+                                                    Выбрать город
                                                 </Button>
-                                            </Box>
+                                            </Stack>
                                         </Paper>
                                     </Fade>
                                 </Grid>
@@ -1166,13 +1177,13 @@ const NearbyCollegesPage = () => {
                         </Grid>
 
                         {pagination.totalPages > 1 && (
-                            <Box sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}>
+                            <Box sx={{ mt: 5, display: 'flex', justifyContent: 'center' }}>
                                 <Pagination
                                     count={pagination.totalPages}
                                     page={pagination.page}
                                     onChange={handlePageChange}
                                     color="primary"
-                                    size="large"
+                                    size="medium"
                                     showFirstButton
                                     showLastButton
                                 />

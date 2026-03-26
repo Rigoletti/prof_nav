@@ -27,26 +27,10 @@ import {
     ToggleButton,
     ToggleButtonGroup,
     InputAdornment,
-    Avatar,
-    AvatarGroup,
     Tooltip,
-    Slider,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    Radio,
-    RadioGroup,
-    FormControlLabel,
-    FormLabel,
     Paper,
     Drawer,
-    List,
-    ListItem,
-    ListItemText,
-    Divider,
     useMediaQuery,
-    Collapse,
-    CardActionArea,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -57,23 +41,16 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import SchoolIcon from '@mui/icons-material/School';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
-import PsychologyIcon from '@mui/icons-material/Psychology';
 import CompareIcon from '@mui/icons-material/Compare';
 import SortIcon from '@mui/icons-material/Sort';
 import ClearIcon from '@mui/icons-material/Clear';
 import BusinessIcon from '@mui/icons-material/Business';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import PaidIcon from '@mui/icons-material/Paid';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocationCityIcon from '@mui/icons-material/LocationCity';
 import ClassIcon from '@mui/icons-material/Class';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import SaveIcon from '@mui/icons-material/Save';
-import DeleteIcon from '@mui/icons-material/Delete';
 import { useAuth } from '../../context/AuthContext';
 
 const ITEMS_PER_PAGE = 12;
@@ -162,7 +139,6 @@ const SpecialtiesPage = () => {
     const [sortOrder, setSortOrder] = useState('asc');
     const [region, setRegion] = useState('');
     
-    const [showFilters, setShowFilters] = useState(false);
     const [selectedSpecialties, setSelectedSpecialties] = useState([]);
     const [updatingFavorites, setUpdatingFavorites] = useState({});
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -386,14 +362,6 @@ const SpecialtiesPage = () => {
         return '#6b7280';
     };
 
-    const getMatchLabel = (percentage) => {
-        if (percentage >= 80) return 'Высокое';
-        if (percentage >= 60) return 'Хорошее';
-        if (percentage >= 40) return 'Среднее';
-        if (percentage >= 20) return 'Низкое';
-        return 'Минимальное';
-    };
-
     const renderFilters = () => (
         <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -412,7 +380,6 @@ const SpecialtiesPage = () => {
                 )}
             </Box>
             
-            {/* Сохраненные пресеты */}
             {user && filterPresets.length > 0 && (
                 <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
@@ -437,7 +404,6 @@ const SpecialtiesPage = () => {
             )}
             
             <Grid container spacing={3}>
-                {/* Город */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Город обучения</InputLabel>
@@ -459,7 +425,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Регион */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Регион</InputLabel>
@@ -481,7 +446,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Форма обучения */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Форма обучения</InputLabel>
@@ -503,7 +467,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Тип финансирования */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Тип финансирования</InputLabel>
@@ -525,7 +488,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Срок обучения */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Срок обучения</InputLabel>
@@ -546,7 +508,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Уровень образования */}
                 <Grid item xs={12} sm={6} md={4}>
                     <FormControl fullWidth size="small">
                         <InputLabel>Уровень образования</InputLabel>
@@ -565,7 +526,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Типы по Климову */}
                 <Grid item xs={12}>
                     <FormControl fullWidth>
                         <InputLabel>Типы по Климову</InputLabel>
@@ -612,7 +572,6 @@ const SpecialtiesPage = () => {
                     </FormControl>
                 </Grid>
                 
-                {/* Кнопки действий */}
                 <Grid item xs={12}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                         {hasActiveFilters() && (
@@ -671,224 +630,235 @@ const SpecialtiesPage = () => {
         const years = extractYearsFromDuration(specialty.duration);
         const matchPercentage = specialty.matchPercentage || 0;
         const matchColor = getMatchColor(matchPercentage);
-        const matchLabel = getMatchLabel(matchPercentage);
         
         return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={specialty._id}>
-                <Card
-                    sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 3,
-                        border: `2px solid ${isSelected ? theme.palette.primary.main : 'transparent'}`,
-                        position: 'relative',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: theme.shadows[8],
-                        }
-                    }}
-                >
-                    <CardActionArea 
-                        component={Link}
-                        to={`/specialties/${specialty._id}`}
-                        sx={{ flexGrow: 1, p: 2 }}
+            <Card
+                sx={{
+                    width: '100%',
+                    maxWidth: 320,
+                    minWidth: 280,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: 2,
+                    border: `2px solid ${isSelected ? theme.palette.primary.main : 'transparent'}`,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: theme.shadows[4],
+                    }
+                }}
+            >
+                <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+                    {/* Код и заголовок */}
+                    <Box>
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                color: 'text.secondary',
+                                fontFamily: 'monospace',
+                                fontWeight: 600,
+                                display: 'block',
+                                mb: 0.5,
+                                fontSize: '0.65rem'
+                            }}
+                        >
+                            {specialty.code}
+                        </Typography>
+                        <Typography 
+                            variant="subtitle2"
+                            component="h3"
+                            sx={{ 
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                lineHeight: 1.3,
+                                height: '2.6em',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                            }}
+                            title={specialty.name}
+                        >
+                            {specialty.name}
+                        </Typography>
+                    </Box>
+                    
+                    {/* Процент совпадения */}
+                    {user && matchPercentage > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '20px' }}>
+                            <Box sx={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                backgroundColor: matchColor,
+                            }} />
+                            <Typography variant="caption" sx={{ fontWeight: 600, color: matchColor, fontSize: '0.6rem' }}>
+                                {matchPercentage}% совпадение
+                            </Typography>
+                        </Box>
+                    )}
+                    
+                    {/* Фильтры в виде чипсов */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, minHeight: '28px' }}>
+                        <Chip
+                            label={FORM_LABELS[specialty.form] || specialty.form}
+                            size="small"
+                            sx={{
+                                backgroundColor: alpha('#10b981', 0.1),
+                                color: '#10b981',
+                                fontSize: '0.55rem',
+                                height: 20,
+                            }}
+                        />
+                        <Chip
+                            label={FUNDING_LABELS[specialty.fundingType] || specialty.fundingType}
+                            size="small"
+                            sx={{
+                                backgroundColor: specialty.fundingType === 'budget' 
+                                    ? alpha('#3b82f6', 0.1) 
+                                    : specialty.fundingType === 'paid'
+                                    ? alpha('#ec4899', 0.1)
+                                    : alpha('#f59e0b', 0.1),
+                                color: specialty.fundingType === 'budget' 
+                                    ? '#3b82f6' 
+                                    : specialty.fundingType === 'paid'
+                                    ? '#ec4899'
+                                    : '#f59e0b',
+                                fontSize: '0.55rem',
+                                height: 20,
+                            }}
+                        />
+                        <Chip
+                            label={`${years.toFixed(1)} лет`}
+                            size="small"
+                            sx={{
+                                backgroundColor: alpha('#6366f1', 0.1),
+                                color: '#6366f1',
+                                fontSize: '0.55rem',
+                                height: 20,
+                            }}
+                        />
+                    </Box>
+                    
+                    {/* Краткое описание */}
+                    <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                            height: '3.9em',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            fontSize: '0.7rem',
+                            lineHeight: 1.3
+                        }}
                     >
-                        <CardContent sx={{ p: 0 }}>
-                            {/* Код и заголовок */}
-                            <Box sx={{ mb: 2 }}>
-                                <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                        color: 'text.secondary',
-                                        fontFamily: 'monospace',
-                                        fontWeight: 600,
-                                        display: 'block',
-                                        mb: 0.5
-                                    }}
-                                >
-                                    {specialty.code}
-                                </Typography>
-                                <Typography 
-                                    variant="h6" 
-                                    sx={{ 
-                                        fontWeight: 700,
-                                        mb: 1,
-                                        lineHeight: 1.3,
-                                        fontSize: '1rem'
-                                    }}
-                                >
-                                    {specialty.name}
+                        {specialty.description || 'Описание отсутствует'}
+                    </Typography>
+                    
+                    {/* Типы по Климову */}
+                    <Box sx={{ minHeight: '46px' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontSize: '0.55rem' }}>
+                            Типы:
+                        </Typography>
+                        {specialty.klimovTypes && specialty.klimovTypes.length > 0 ? (
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                {specialty.klimovTypes.slice(0, 3).map((type, idx) => {
+                                    const typeInfo = KLIMOV_TYPES[type];
+                                    return (
+                                        <Chip
+                                            key={idx}
+                                            label={typeInfo?.short || type}
+                                            size="small"
+                                            sx={{
+                                                backgroundColor: alpha(typeInfo?.color || '#6366f1', 0.1),
+                                                color: typeInfo?.color || '#6366f1',
+                                                fontSize: '0.5rem',
+                                                height: 18,
+                                                '& .MuiChip-label': { px: 0.75 }
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </Box>
+                        ) : (
+                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.55rem' }}>
+                                —
+                            </Typography>
+                        )}
+                    </Box>
+                    
+                    {/* Колледжи */}
+                    <Box sx={{ minHeight: '38px' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontSize: '0.55rem' }}>
+                            Доступна в:
+                        </Typography>
+                        {collegeCount > 0 ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <BusinessIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+                                    {collegeCount} колледж{collegeCount > 1 ? 'ах' : 'е'}
                                 </Typography>
                             </Box>
-                            
-                            {/* Процент совпадения */}
-                            {user && matchPercentage > 0 && (
-                                <Box sx={{ mb: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                        <Box sx={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: '50%',
-                                            backgroundColor: matchColor
-                                        }} />
-                                        <Typography variant="caption" sx={{ fontWeight: 600, color: matchColor }}>
-                                            {matchPercentage}% совпадение
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-                            
-                            {/* Фильтры в виде чипсов */}
-                            <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
-                                <Chip
-                                    label={FORM_LABELS[specialty.form] || specialty.form}
-                                    size="small"
-                                    sx={{
-                                        backgroundColor: alpha('#10b981', 0.1),
-                                        color: '#10b981',
-                                        fontSize: '0.7rem',
-                                        height: 20,
-                                    }}
-                                />
-                                <Chip
-                                    label={FUNDING_LABELS[specialty.fundingType] || specialty.fundingType}
-                                    size="small"
-                                    sx={{
-                                        backgroundColor: specialty.fundingType === 'budget' 
-                                            ? alpha('#3b82f6', 0.1) 
-                                            : specialty.fundingType === 'paid'
-                                            ? alpha('#ec4899', 0.1)
-                                            : alpha('#f59e0b', 0.1),
-                                        color: specialty.fundingType === 'budget' 
-                                            ? '#3b82f6' 
-                                            : specialty.fundingType === 'paid'
-                                            ? '#ec4899'
-                                            : '#f59e0b',
-                                        fontSize: '0.7rem',
-                                        height: 20,
-                                    }}
-                                />
-                                <Chip
-                                    label={`${years.toFixed(1)} лет`}
-                                    size="small"
-                                    sx={{
-                                        backgroundColor: alpha('#6366f1', 0.1),
-                                        color: '#6366f1',
-                                        fontSize: '0.7rem',
-                                        height: 20,
-                                    }}
-                                />
-                            </Stack>
-                            
-                            {/* Краткое описание */}
-                            <Typography 
-                                variant="body2" 
-                                color="text.secondary" 
-                                sx={{ 
-                                    mb: 2,
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 3,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                    fontSize: '0.85rem'
-                                }}
-                            >
-                                {specialty.description || 'Описание отсутствует'}
+                        ) : (
+                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.55rem' }}>
+                                Не указано
                             </Typography>
-                            
-                            {/* Типы по Климову */}
-                            {specialty.klimovTypes && specialty.klimovTypes.length > 0 && (
-                                <Box sx={{ mb: 2 }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                        Типы:
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                        {specialty.klimovTypes.slice(0, 3).map((type, idx) => {
-                                            const typeInfo = KLIMOV_TYPES[type];
-                                            return (
-                                                <Chip
-                                                    key={idx}
-                                                    label={typeInfo?.short || type}
-                                                    size="small"
-                                                    sx={{
-                                                        backgroundColor: alpha(typeInfo?.color || '#6366f1', 0.1),
-                                                        color: typeInfo?.color || '#6366f1',
-                                                        fontSize: '0.7rem',
-                                                        height: 20,
-                                                    }}
-                                                />
-                                            );
-                                        })}
-                                    </Box>
-                                </Box>
-                            )}
-                            
-                            {/* Колледжи */}
-                            {collegeCount > 0 && (
-                                <Box sx={{ mt: 'auto' }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                        Доступна в:
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <BusinessIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                        <Typography variant="caption">
-                                            {collegeCount} колледж{collegeCount > 1 ? 'ах' : 'е'}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-                        </CardContent>
-                    </CardActionArea>
-                    
-                    {/* Кнопки действий */}
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1 }}>
-                        <Button
-                            component={Link}
-                            to={`/specialties/${specialty._id}`}
-                            variant="outlined"
-                            size="small"
-                            fullWidth
-                        >
-                            Подробнее
-                        </Button>
-                        <IconButton
-                            size="small"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSelectSpecialty(specialty._id);
-                            }}
-                            sx={{ 
-                                border: '1px solid',
-                                borderColor: isSelected ? 'primary.main' : 'divider',
-                                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.1) : 'transparent'
-                            }}
-                        >
-                            <CompareIcon sx={{ 
-                                color: isSelected ? theme.palette.primary.main : 'inherit',
-                                fontSize: 20
-                            }} />
-                        </IconButton>
-                        <IconButton
-                            size="small"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(specialty._id);
-                            }}
-                            disabled={updatingFavorites[specialty._id]}
-                        >
-                            {updatingFavorites[specialty._id] ? (
-                                <CircularProgress size={20} />
-                            ) : isFavorite ? (
-                                <BookmarkIcon sx={{ color: '#ec4899' }} />
-                            ) : (
-                                <BookmarkBorderIcon />
-                            )}
-                        </IconButton>
+                        )}
                     </Box>
-                </Card>
-            </Grid>
+                </Box>
+                
+                {/* Кнопки действий */}
+                <Box sx={{ p: 1.5, pt: 0, display: 'flex', gap: 1 }}>
+                    <Button
+                        component={Link}
+                        to={`/specialties/${specialty._id}`}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={{ fontSize: '0.7rem', py: 0.5 }}
+                    >
+                        Подробнее
+                    </Button>
+                    <IconButton
+                        size="small"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelectSpecialty(specialty._id);
+                        }}
+                        sx={{ 
+                            border: '1px solid',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                            width: 28,
+                            height: 28
+                        }}
+                    >
+                        <CompareIcon sx={{ 
+                            color: isSelected ? theme.palette.primary.main : 'inherit',
+                            fontSize: 16
+                        }} />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(specialty._id);
+                        }}
+                        disabled={updatingFavorites[specialty._id]}
+                        sx={{ width: 28, height: 28 }}
+                    >
+                        {updatingFavorites[specialty._id] ? (
+                            <CircularProgress size={14} />
+                        ) : isFavorite ? (
+                            <BookmarkIcon sx={{ color: '#ec4899', fontSize: 16 }} />
+                        ) : (
+                            <BookmarkBorderIcon sx={{ fontSize: 16 }} />
+                        )}
+                    </IconButton>
+                </Box>
+            </Card>
         );
     };
 
@@ -1046,7 +1016,6 @@ const SpecialtiesPage = () => {
             py: 6,
         }}>
             <Container maxWidth="xl">
-                {/* Заголовок */}
                 <Box sx={{ mb: 6 }}>
                     <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
                         Каталог специальностей СПО
@@ -1056,11 +1025,9 @@ const SpecialtiesPage = () => {
                     </Typography>
                 </Box>
 
-                {/* Панель поиска и сортировки */}
                 <Card sx={{ borderRadius: 3, mb: 4, p: 3 }}>
                     <form onSubmit={handleSearchSubmit}>
                         <Grid container spacing={3} alignItems="center">
-                            {/* Поле поиска */}
                             <Grid item xs={12} md={6} lg={4}>
                                 <TextField
                                     fullWidth
@@ -1088,21 +1055,14 @@ const SpecialtiesPage = () => {
                                             </InputAdornment>
                                         ),
                                     }}
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 2,
-                                        }
-                                    }}
                                 />
                                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                                     Нажмите Enter для поиска
                                 </Typography>
                             </Grid>
                             
-                            {/* Сортировка и кнопки */}
                             <Grid item xs={12} md={6} lg={8}>
                                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                    {/* Сортировка */}
                                     <FormControl sx={{ minWidth: 120 }} size="small">
                                         <InputLabel>Сортировка</InputLabel>
                                         <Select
@@ -1121,7 +1081,6 @@ const SpecialtiesPage = () => {
                                         </Select>
                                     </FormControl>
                                     
-                                    {/* Порядок сортировки */}
                                     <ToggleButtonGroup
                                         value={sortOrder}
                                         exclusive
@@ -1141,7 +1100,6 @@ const SpecialtiesPage = () => {
                                         </ToggleButton>
                                     </ToggleButtonGroup>
                                     
-                                    {/* Кнопка поиска для мобильных */}
                                     {isMobile && (
                                         <Button
                                             type="submit"
@@ -1153,7 +1111,6 @@ const SpecialtiesPage = () => {
                                         </Button>
                                     )}
                                     
-                                    {/* Кнопка фильтров для мобильных */}
                                     {isMobile && (
                                         <Button
                                             variant="outlined"
@@ -1172,7 +1129,6 @@ const SpecialtiesPage = () => {
                                         </Button>
                                     )}
                                     
-                                    {/* Кнопка сравнения */}
                                     {selectedSpecialties.length > 0 && (
                                         <Button
                                             variant="contained"
@@ -1185,7 +1141,6 @@ const SpecialtiesPage = () => {
                                         </Button>
                                     )}
                                     
-                                    {/* Кнопка сброса фильтров */}
                                     {hasActiveFilters() && (
                                         <Button
                                             variant="outlined"
@@ -1197,7 +1152,6 @@ const SpecialtiesPage = () => {
                                         </Button>
                                     )}
                                     
-                                    {/* Кнопка поиска для десктопа */}
                                     {!isMobile && (
                                         <Button
                                             type="submit"
@@ -1213,7 +1167,6 @@ const SpecialtiesPage = () => {
                         </Grid>
                     </form>
                     
-                    {/* Статистика */}
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">
                             Найдено специальностей: {total}
@@ -1230,23 +1183,19 @@ const SpecialtiesPage = () => {
                     </Box>
                 </Card>
 
-                {/* Ошибка */}
                 {error && (
                     <Alert severity="error" sx={{ mb: 4 }}>
                         {error}
                     </Alert>
                 )}
 
-                {/* Основной контент */}
                 <Grid container spacing={4}>
-                    {/* Фильтры для десктопа */}
                     {!isMobile && (
                         <Grid item xs={12} md={3}>
                             {renderFilters()}
                         </Grid>
                     )}
 
-                    {/* Список специальностей */}
                     <Grid item xs={12} md={isMobile ? 12 : 9}>
                         {renderActiveFilters()}
                         
@@ -1265,9 +1214,23 @@ const SpecialtiesPage = () => {
                             </Card>
                         ) : (
                             <>
-                                <Grid container spacing={3}>
-                                    {specialties.map(renderSpecialtyCard)}
-                                </Grid>
+                                <Box sx={{ 
+                                    display: 'grid',
+                                    gridTemplateColumns: {
+                                        xs: '1fr',
+                                        sm: 'repeat(2, 1fr)',
+                                        md: 'repeat(3, 1fr)',
+                                        lg: 'repeat(4, 1fr)'  // ← 4 карточки в ряд на больших экранах
+                                    },
+                                    gap: 2.5,
+                                    justifyContent: 'center'
+                                }}>
+                                    {specialties.map((specialty) => (
+                                        <Box key={specialty._id} sx={{ display: 'flex', justifyContent: 'center' }}>
+                                            {renderSpecialtyCard(specialty)}
+                                        </Box>
+                                    ))}
+                                </Box>
                                 
                                 {totalPages > 1 && (
                                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
@@ -1285,18 +1248,12 @@ const SpecialtiesPage = () => {
                                             size="large"
                                             showFirstButton
                                             showLastButton
-                                            sx={{
-                                                '& .MuiPaginationItem-root': {
-                                                    borderRadius: 2,
-                                                }
-                                            }}
                                         />
                                     </Box>
                                 )}
                             </>
                         )}
                         
-                        {/* Панель сравнения */}
                         {selectedSpecialties.length > 0 && (
                             <Paper 
                                 elevation={4}
@@ -1342,10 +1299,7 @@ const SpecialtiesPage = () => {
                     </Grid>
                 </Grid>
                 
-                {/* Мобильные фильтры */}
                 {renderMobileFilters()}
-                
-                {/* Диалог сохранения фильтров */}
                 {renderSaveFiltersDialog()}
             </Container>
         </Box>
