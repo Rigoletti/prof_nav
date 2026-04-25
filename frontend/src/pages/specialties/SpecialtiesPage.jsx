@@ -1,4 +1,3 @@
-// src/pages/specialties/SpecialtiesPage.jsx
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
@@ -34,7 +33,11 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    Divider,
+    Popover,
+    FormGroup,
+    FormControlLabel
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -51,16 +54,19 @@ import ClassIcon from '@mui/icons-material/Class';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { useAuth } from '../../context/AuthContext';
 
 const ITEMS_PER_PAGE = 12;
 
 const KLIMOV_TYPES = {
-    manNature: { name: 'Человек-Природа', color: '#10b981', short: 'П' },
-    manTech: { name: 'Человек-Техника', color: '#3b82f6', short: 'Т' },
-    manHuman: { name: 'Человек-Человек', color: '#ec4899', short: 'Ч' },
-    manSign: { name: 'Человек-Знаковая система', color: '#f59e0b', short: 'З' },
-    manArt: { name: 'Человек-Искусство', color: '#8b5cf6', short: 'Х' }
+    manNature: { name: 'Человек-Природа', color: '#10b981', short: 'П', icon: '🌿' },
+    manTech: { name: 'Человек-Техника', color: '#3b82f6', short: 'Т', icon: '⚙️' },
+    manHuman: { name: 'Человек-Человек', color: '#ec4899', short: 'Ч', icon: '👥' },
+    manSign: { name: 'Человек-Знаковая система', color: '#f59e0b', short: 'З', icon: '📊' },
+    manArt: { name: 'Человек-Искусство', color: '#8b5cf6', short: 'Х', icon: '🎨' }
 };
 
 const FORM_LABELS = {
@@ -85,10 +91,8 @@ const DURATION_RANGES = [
 
 const extractYearsFromDuration = (duration) => {
     if (!duration) return 0;
-    
     const durationLower = duration.toLowerCase();
     let years = 0;
-    
     const matches = durationLower.match(/(\d+[,.]?\d*)/g);
     if (matches) {
         if (durationLower.includes('год') || durationLower.includes('лет')) {
@@ -100,7 +104,6 @@ const extractYearsFromDuration = (duration) => {
             years = parseFloat(matches[0].replace(',', '.'));
         }
     }
-    
     return years;
 };
 
@@ -110,7 +113,6 @@ const SpecialtiesPage = () => {
     const { api, user } = useAuth();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const searchTimeoutRef = useRef(null);
-    
     const [specialties, setSpecialties] = useState([]);
     const [filtersData, setFiltersData] = useState({
         regions: [],
@@ -126,7 +128,6 @@ const SpecialtiesPage = () => {
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
-    
     const [searchTerm, setSearchTerm] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [selectedKlimovTypes, setSelectedKlimovTypes] = useState([]);
@@ -138,13 +139,21 @@ const SpecialtiesPage = () => {
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
     const [region, setRegion] = useState('');
-    
     const [selectedSpecialties, setSelectedSpecialties] = useState([]);
     const [updatingFavorites, setUpdatingFavorites] = useState({});
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [saveFiltersDialogOpen, setSaveFiltersDialogOpen] = useState(false);
     const [filterPresets, setFilterPresets] = useState([]);
     const [newPresetName, setNewPresetName] = useState('');
+    
+    // Popover states
+    const [klimovAnchorEl, setKlimovAnchorEl] = useState(null);
+    const [cityAnchorEl, setCityAnchorEl] = useState(null);
+    const [regionAnchorEl, setRegionAnchorEl] = useState(null);
+    const [formAnchorEl, setFormAnchorEl] = useState(null);
+    const [fundingAnchorEl, setFundingAnchorEl] = useState(null);
+    const [durationAnchorEl, setDurationAnchorEl] = useState(null);
+    const [educationAnchorEl, setEducationAnchorEl] = useState(null);
 
     useEffect(() => {
         loadSpecialties();
@@ -157,7 +166,6 @@ const SpecialtiesPage = () => {
     const loadSpecialties = async () => {
         try {
             setLoading(true);
-            
             const params = new URLSearchParams({
                 page: page,
                 limit: ITEMS_PER_PAGE,
@@ -172,14 +180,11 @@ const SpecialtiesPage = () => {
                 sortBy,
                 sortOrder
             });
-
             const response = await api.get(`/specialties?${params}`);
-            
             if (response.data.success) {
                 setSpecialties(response.data.specialties || []);
                 setTotal(response.data.total || 0);
                 setTotalPages(response.data.totalPages || 1);
-                
                 if (response.data.filters) {
                     setFiltersData({
                         regions: response.data.filters.regions || [],
@@ -201,7 +206,6 @@ const SpecialtiesPage = () => {
 
     const loadFavorites = async () => {
         if (!user) return;
-        
         try {
             const response = await api.get('/specialties/saved/list');
             const favoriteIds = response.data.savedSpecialties.map(fav => fav._id);
@@ -213,7 +217,6 @@ const SpecialtiesPage = () => {
 
     const loadFilterPresets = async () => {
         if (!user) return;
-        
         try {
             const presets = JSON.parse(localStorage.getItem(`filterPresets_${user._id}`) || '[]');
             setFilterPresets(presets);
@@ -224,25 +227,12 @@ const SpecialtiesPage = () => {
 
     const saveFilterPreset = () => {
         if (!user) return;
-        
         const preset = {
             id: Date.now(),
             name: newPresetName,
-            filters: {
-                searchTerm,
-                selectedKlimovTypes,
-                educationLevel,
-                form,
-                fundingType,
-                city,
-                durationRange,
-                region,
-                sortBy,
-                sortOrder
-            },
+            filters: { searchTerm, selectedKlimovTypes, educationLevel, form, fundingType, city, durationRange, region, sortBy, sortOrder },
             createdAt: new Date().toISOString()
         };
-        
         const updatedPresets = [...filterPresets, preset];
         setFilterPresets(updatedPresets);
         localStorage.setItem(`filterPresets_${user._id}`, JSON.stringify(updatedPresets));
@@ -276,10 +266,8 @@ const SpecialtiesPage = () => {
             navigate('/login');
             return;
         }
-
         const isFavorite = favorites.includes(specialtyId);
         setUpdatingFavorites(prev => ({ ...prev, [specialtyId]: true }));
-
         try {
             if (isFavorite) {
                 await api.post('/specialties/unsave', { specialtyId });
@@ -297,17 +285,12 @@ const SpecialtiesPage = () => {
 
     const toggleSelectSpecialty = (specialtyId) => {
         setSelectedSpecialties(prev => 
-            prev.includes(specialtyId) 
-                ? prev.filter(id => id !== specialtyId)
-                : [...prev, specialtyId]
+            prev.includes(specialtyId) ? prev.filter(id => id !== specialtyId) : [...prev, specialtyId]
         );
     };
 
     const handleSearch = useCallback(() => {
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-        }
-        
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         searchTimeoutRef.current = setTimeout(() => {
             setSearchTerm(searchInput);
             setPage(1);
@@ -317,9 +300,7 @@ const SpecialtiesPage = () => {
     useEffect(() => {
         handleSearch();
         return () => {
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-            }
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         };
     }, [searchInput, handleSearch]);
 
@@ -338,21 +319,21 @@ const SpecialtiesPage = () => {
         setPage(1);
     };
 
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        setSearchTerm(searchInput);
-        setPage(1);
+    const hasActiveFilters = () => {
+        return searchTerm || selectedKlimovTypes.length > 0 || educationLevel || form || fundingType || city || durationRange !== 'all' || region;
     };
 
-    const hasActiveFilters = () => {
-        return searchTerm || 
-               selectedKlimovTypes.length > 0 || 
-               educationLevel || 
-               form || 
-               fundingType || 
-               city || 
-               durationRange !== 'all' ||
-               region;
+    const getActiveFiltersCount = () => {
+        let count = 0;
+        if (searchTerm) count++;
+        if (city) count++;
+        if (region) count++;
+        if (form) count++;
+        if (fundingType) count++;
+        if (durationRange !== 'all') count++;
+        if (educationLevel) count++;
+        count += selectedKlimovTypes.length;
+        return count;
     };
 
     const getMatchColor = (percentage) => {
@@ -362,265 +343,34 @@ const SpecialtiesPage = () => {
         return '#6b7280';
     };
 
-    const renderFilters = () => (
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FilterListIcon /> Фильтры
-                </Typography>
-                {user && (
-                    <Button
-                        size="small"
-                        startIcon={<SaveIcon />}
-                        onClick={() => setSaveFiltersDialogOpen(true)}
-                        variant="outlined"
-                    >
-                        Сохранить
-                    </Button>
-                )}
-            </Box>
-            
-            {user && filterPresets.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                        Сохраненные фильтры:
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                        {filterPresets.map(preset => (
-                            <Chip
-                                key={preset.id}
-                                label={preset.name}
-                                onClick={() => loadFilterPreset(preset)}
-                                onDelete={() => deleteFilterPreset(preset.id)}
-                                size="small"
-                                sx={{
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                                    color: theme.palette.primary.main,
-                                }}
-                            />
-                        ))}
-                    </Stack>
-                </Box>
-            )}
-            
-            <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Город обучения</InputLabel>
-                        <Select
-                            value={city}
-                            onChange={(e) => {
-                                setCity(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Город обучения"
-                        >
-                            <MenuItem value="">Все города</MenuItem>
-                            {filtersData.cities.map(city => (
-                                <MenuItem key={city} value={city}>
-                                    {city}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Регион</InputLabel>
-                        <Select
-                            value={region}
-                            onChange={(e) => {
-                                setRegion(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Регион"
-                        >
-                            <MenuItem value="">Все регионы</MenuItem>
-                            {filtersData.regions.map(region => (
-                                <MenuItem key={region} value={region}>
-                                    {region}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Форма обучения</InputLabel>
-                        <Select
-                            value={form}
-                            onChange={(e) => {
-                                setForm(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Форма обучения"
-                        >
-                            <MenuItem value="">Все формы</MenuItem>
-                            {filtersData.forms.map(form => (
-                                <MenuItem key={form} value={form}>
-                                    {FORM_LABELS[form]}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Тип финансирования</InputLabel>
-                        <Select
-                            value={fundingType}
-                            onChange={(e) => {
-                                setFundingType(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Тип финансирования"
-                        >
-                            <MenuItem value="">Все типы</MenuItem>
-                            {filtersData.fundingTypes.map(type => (
-                                <MenuItem key={type} value={type}>
-                                    {FUNDING_LABELS[type]}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Срок обучения</InputLabel>
-                        <Select
-                            value={durationRange}
-                            onChange={(e) => {
-                                setDurationRange(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Срок обучения"
-                        >
-                            {DURATION_RANGES.map(range => (
-                                <MenuItem key={range.value} value={range.value}>
-                                    {range.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Уровень образования</InputLabel>
-                        <Select
-                            value={educationLevel}
-                            onChange={(e) => {
-                                setEducationLevel(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Уровень образования"
-                        >
-                            <MenuItem value="">Все уровни</MenuItem>
-                            <MenuItem value="SPO">СПО (Среднее профессиональное)</MenuItem>
-                            <MenuItem value="VO">ВО (Высшее образование)</MenuItem>
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12}>
-                    <FormControl fullWidth>
-                        <InputLabel>Типы по Климову</InputLabel>
-                        <Select
-                            multiple
-                            value={selectedKlimovTypes}
-                            onChange={(e) => {
-                                setSelectedKlimovTypes(e.target.value);
-                                setPage(1);
-                            }}
-                            label="Типы по Климову"
-                            size="small"
-                            renderValue={(selected) => (
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                    {selected.map((value) => (
-                                        <Chip
-                                            key={value}
-                                            label={KLIMOV_TYPES[value]?.short || value}
-                                            size="small"
-                                            sx={{
-                                                backgroundColor: alpha(KLIMOV_TYPES[value]?.color || '#6366f1', 0.1),
-                                                color: KLIMOV_TYPES[value]?.color || '#6366f1',
-                                            }}
-                                        />
-                                    ))}
-                                </Box>
-                            )}
-                        >
-                            {Object.entries(KLIMOV_TYPES).map(([value, type]) => (
-                                <MenuItem key={value} value={value}>
-                                    <Checkbox checked={selectedKlimovTypes.includes(value)} />
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{
-                                            width: 12,
-                                            height: 12,
-                                            borderRadius: '50%',
-                                            backgroundColor: type.color
-                                        }} />
-                                        {type.name}
-                                    </Box>
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                
-                <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                        {hasActiveFilters() && (
-                            <Button
-                                variant="outlined"
-                                startIcon={<ClearIcon />}
-                                onClick={clearFilters}
-                                size="small"
-                            >
-                                Сбросить все фильтры
-                            </Button>
-                        )}
-                        
-                        {isMobile && (
-                            <Button
-                                variant="contained"
-                                onClick={() => setMobileFiltersOpen(false)}
-                                size="small"
-                            >
-                                Применить фильтры
-                            </Button>
-                        )}
-                    </Box>
-                </Grid>
-            </Grid>
-        </Paper>
+    const FilterChip = ({ label, icon, active, onClick, onDelete, color }) => (
+        <Chip
+            label={label}
+            icon={icon}
+            onClick={onClick}
+            onDelete={active ? onDelete : undefined}
+            variant={active ? "filled" : "outlined"}
+            color={active ? "primary" : "default"}
+            sx={{
+                height: 40,
+                '& .MuiChip-label': { fontWeight: 500 },
+                ...(active && { bgcolor: color ? alpha(color, 0.1) : undefined })
+            }}
+        />
     );
 
-    const renderMobileFilters = () => (
-        <Drawer
-            anchor="right"
-            open={mobileFiltersOpen}
-            onClose={() => setMobileFiltersOpen(false)}
-            PaperProps={{
-                sx: { width: '100%', maxWidth: 400, p: 2 }
-            }}
+    const renderFilterPopover = (anchorEl, setAnchorEl, title, children) => (
+        <Popover
+            open={Boolean(anchorEl)}
+            anchorEl={anchorEl}
+            onClose={() => setAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            PaperProps={{ sx: { p: 2, minWidth: 250, maxWidth: 350, mt: 1, borderRadius: 2 } }}
         >
-            <Box sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Фильтры
-                    </Typography>
-                    <IconButton onClick={() => setMobileFiltersOpen(false)}>
-                        <CloseIcon />
-                    </IconButton>
-                </Box>
-                {renderFilters()}
-            </Box>
-        </Drawer>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>{title}</Typography>
+            {children}
+        </Popover>
     );
 
     const renderSpecialtyCard = (specialty) => {
@@ -632,675 +382,253 @@ const SpecialtiesPage = () => {
         const matchColor = getMatchColor(matchPercentage);
         
         return (
-            <Card
-                sx={{
-                    width: '100%',
-                    maxWidth: 320,
-                    minWidth: 280,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderRadius: 2,
-                    border: `2px solid ${isSelected ? theme.palette.primary.main : 'transparent'}`,
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: theme.shadows[4],
-                    }
-                }}
-            >
-                <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
-                    {/* Код и заголовок */}
-                    <Box>
-                        <Typography 
-                            variant="caption" 
-                            sx={{ 
-                                color: 'text.secondary',
-                                fontFamily: 'monospace',
-                                fontWeight: 600,
-                                display: 'block',
-                                mb: 0.5,
-                                fontSize: '0.65rem'
-                            }}
-                        >
-                            {specialty.code}
-                        </Typography>
-                        <Typography 
-                            variant="subtitle2"
-                            component="h3"
-                            sx={{ 
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                lineHeight: 1.3,
-                                height: '2.6em',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden'
-                            }}
-                            title={specialty.name}
-                        >
-                            {specialty.name}
-                        </Typography>
+            <Card sx={{
+                borderRadius: 3,
+                border: `2px solid ${isSelected ? theme.palette.primary.main : 'transparent'}`,
+                transition: 'all 0.3s',
+                position: 'relative',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] }
+            }}>
+                {user && matchPercentage > 0 && (
+                    <Box sx={{
+                        position: 'absolute', top: -12, right: 12,
+                        px: 1.5, py: 0.5, borderRadius: 2,
+                        bgcolor: matchColor, color: 'white',
+                        fontSize: '0.7rem', fontWeight: 700, zIndex: 1
+                    }}>
+                        {matchPercentage}% совпадение
+                    </Box>
+                )}
+                <Box sx={{ p: 2.5, flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', fontWeight: 600, fontSize: '0.7rem' }}>
+                        {specialty.code}
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mt: 0.5, mb: 1 }}>
+                        {specialty.name}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+                        <Chip label={FORM_LABELS[specialty.form] || specialty.form} size="small" sx={{ fontSize: '0.6rem', height: 22, bgcolor: alpha('#10b981', 0.1), color: '#10b981' }} />
+                        <Chip label={FUNDING_LABELS[specialty.fundingType] || specialty.fundingType} size="small" sx={{ fontSize: '0.6rem', height: 22, bgcolor: alpha('#3b82f6', 0.1), color: '#3b82f6' }} />
+                        <Chip label={`${years.toFixed(1)} лет`} size="small" sx={{ fontSize: '0.6rem', height: 22, bgcolor: alpha('#6366f1', 0.1), color: '#6366f1' }} />
                     </Box>
                     
-                    {/* Процент совпадения */}
-                    {user && matchPercentage > 0 && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '20px' }}>
-                            <Box sx={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                backgroundColor: matchColor,
-                            }} />
-                            <Typography variant="caption" sx={{ fontWeight: 600, color: matchColor, fontSize: '0.6rem' }}>
-                                {matchPercentage}% совпадение
-                            </Typography>
-                        </Box>
-                    )}
-                    
-                    {/* Фильтры в виде чипсов */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, minHeight: '28px' }}>
-                        <Chip
-                            label={FORM_LABELS[specialty.form] || specialty.form}
-                            size="small"
-                            sx={{
-                                backgroundColor: alpha('#10b981', 0.1),
-                                color: '#10b981',
-                                fontSize: '0.55rem',
-                                height: 20,
-                            }}
-                        />
-                        <Chip
-                            label={FUNDING_LABELS[specialty.fundingType] || specialty.fundingType}
-                            size="small"
-                            sx={{
-                                backgroundColor: specialty.fundingType === 'budget' 
-                                    ? alpha('#3b82f6', 0.1) 
-                                    : specialty.fundingType === 'paid'
-                                    ? alpha('#ec4899', 0.1)
-                                    : alpha('#f59e0b', 0.1),
-                                color: specialty.fundingType === 'budget' 
-                                    ? '#3b82f6' 
-                                    : specialty.fundingType === 'paid'
-                                    ? '#ec4899'
-                                    : '#f59e0b',
-                                fontSize: '0.55rem',
-                                height: 20,
-                            }}
-                        />
-                        <Chip
-                            label={`${years.toFixed(1)} лет`}
-                            size="small"
-                            sx={{
-                                backgroundColor: alpha('#6366f1', 0.1),
-                                color: '#6366f1',
-                                fontSize: '0.55rem',
-                                height: 20,
-                            }}
-                        />
-                    </Box>
-                    
-                    {/* Краткое описание */}
-                    <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ 
-                            height: '3.9em',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            fontSize: '0.7rem',
-                            lineHeight: 1.3
-                        }}
-                    >
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {specialty.description || 'Описание отсутствует'}
                     </Typography>
                     
-                    {/* Типы по Климову */}
-                    <Box sx={{ minHeight: '46px' }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontSize: '0.55rem' }}>
-                            Типы:
-                        </Typography>
-                        {specialty.klimovTypes && specialty.klimovTypes.length > 0 ? (
-                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                {specialty.klimovTypes.slice(0, 3).map((type, idx) => {
-                                    const typeInfo = KLIMOV_TYPES[type];
-                                    return (
-                                        <Chip
-                                            key={idx}
-                                            label={typeInfo?.short || type}
-                                            size="small"
-                                            sx={{
-                                                backgroundColor: alpha(typeInfo?.color || '#6366f1', 0.1),
-                                                color: typeInfo?.color || '#6366f1',
-                                                fontSize: '0.5rem',
-                                                height: 18,
-                                                '& .MuiChip-label': { px: 0.75 }
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </Box>
-                        ) : (
-                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.55rem' }}>
-                                —
-                            </Typography>
-                        )}
+                    <Box sx={{ mb: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', fontWeight: 500 }}>Типы деятельности:</Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                            {specialty.klimovTypes?.slice(0, 3).map((type, idx) => {
+                                const typeInfo = KLIMOV_TYPES[type];
+                                return typeInfo ? (
+                                    <Chip key={idx} icon={<span>{typeInfo.icon}</span>} label={typeInfo.short} size="small" sx={{ fontSize: '0.55rem', height: 20, bgcolor: alpha(typeInfo.color, 0.1), color: typeInfo.color }} />
+                                ) : null;
+                            })}
+                        </Box>
                     </Box>
                     
-                    {/* Колледжи */}
-                    <Box sx={{ minHeight: '38px' }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontSize: '0.55rem' }}>
-                            Доступна в:
-                        </Typography>
-                        {collegeCount > 0 ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <BusinessIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
-                                <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-                                    {collegeCount} колледж{collegeCount > 1 ? 'ах' : 'е'}
-                                </Typography>
-                            </Box>
-                        ) : (
-                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.55rem' }}>
-                                Не указано
-                            </Typography>
-                        )}
+                    <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', fontWeight: 500 }}>Доступна в:</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+                            <BusinessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>{collegeCount} колледж{collegeCount > 1 ? 'ах' : 'е'}</Typography>
+                        </Box>
                     </Box>
                 </Box>
                 
-                {/* Кнопки действий */}
-                <Box sx={{ p: 1.5, pt: 0, display: 'flex', gap: 1 }}>
-                    <Button
-                        component={Link}
-                        to={`/specialties/${specialty._id}`}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        sx={{ fontSize: '0.7rem', py: 0.5 }}
-                    >
-                        Подробнее
-                    </Button>
-                    <IconButton
-                        size="small"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSelectSpecialty(specialty._id);
-                        }}
-                        sx={{ 
-                            border: '1px solid',
-                            borderColor: isSelected ? 'primary.main' : 'divider',
-                            bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                            width: 28,
-                            height: 28
-                        }}
-                    >
-                        <CompareIcon sx={{ 
-                            color: isSelected ? theme.palette.primary.main : 'inherit',
-                            fontSize: 16
-                        }} />
+                <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1 }}>
+                    <Button component={Link} to={`/specialties/${specialty._id}`} variant="contained" size="small" fullWidth sx={{ fontSize: '0.7rem', py: 0.75, borderRadius: 2 }}>Подробнее</Button>
+                    <IconButton size="small" onClick={() => toggleSelectSpecialty(specialty._id)} sx={{ border: '1.5px solid', borderColor: isSelected ? 'primary.main' : 'divider', width: 32, height: 32 }}>
+                        <CompareIcon sx={{ color: isSelected ? theme.palette.primary.main : 'text.secondary', fontSize: 16 }} />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(specialty._id);
-                        }}
-                        disabled={updatingFavorites[specialty._id]}
-                        sx={{ width: 28, height: 28 }}
-                    >
-                        {updatingFavorites[specialty._id] ? (
-                            <CircularProgress size={14} />
-                        ) : isFavorite ? (
-                            <BookmarkIcon sx={{ color: '#ec4899', fontSize: 16 }} />
-                        ) : (
-                            <BookmarkBorderIcon sx={{ fontSize: 16 }} />
-                        )}
+                    <IconButton size="small" onClick={() => toggleFavorite(specialty._id)} disabled={updatingFavorites[specialty._id]} sx={{ width: 32, height: 32 }}>
+                        {updatingFavorites[specialty._id] ? <CircularProgress size={14} /> : isFavorite ? <BookmarkIcon sx={{ color: '#ec4899' }} /> : <BookmarkBorderIcon />}
                     </IconButton>
                 </Box>
             </Card>
         );
     };
 
-    const renderActiveFilters = () => {
+    const renderActiveFiltersChips = () => {
         if (!hasActiveFilters()) return null;
-
         return (
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Активные фильтры:
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {searchTerm && (
-                        <Chip
-                            label={`Поиск: "${searchTerm}"`}
-                            size="small"
-                            onDelete={() => {
-                                setSearchTerm('');
-                                setSearchInput('');
-                            }}
-                        />
-                    )}
-                    {city && (
-                        <Chip
-                            label={`Город: ${city}`}
-                            size="small"
-                            onDelete={() => setCity('')}
-                            icon={<LocationCityIcon />}
-                        />
-                    )}
-                    {region && (
-                        <Chip
-                            label={`Регион: ${region}`}
-                            size="small"
-                            onDelete={() => setRegion('')}
-                        />
-                    )}
-                    {form && (
-                        <Chip
-                            label={`Форма: ${FORM_LABELS[form]}`}
-                            size="small"
-                            onDelete={() => setForm('')}
-                            icon={<ClassIcon />}
-                        />
-                    )}
-                    {fundingType && (
-                        <Chip
-                            label={`Финансирование: ${FUNDING_LABELS[fundingType]}`}
-                            size="small"
-                            onDelete={() => setFundingType('')}
-                            icon={<AttachMoneyIcon />}
-                        />
-                    )}
-                    {durationRange !== 'all' && (
-                        <Chip
-                            label={`Срок: ${DURATION_RANGES.find(r => r.value === durationRange)?.label}`}
-                            size="small"
-                            onDelete={() => setDurationRange('all')}
-                            icon={<AccessTimeIcon />}
-                        />
-                    )}
-                    {educationLevel && (
-                        <Chip
-                            label={`Уровень: ${educationLevel === 'SPO' ? 'СПО' : 'ВО'}`}
-                            size="small"
-                            onDelete={() => setEducationLevel('')}
-                            icon={<SchoolIcon />}
-                        />
-                    )}
-                    {selectedKlimovTypes.map(type => (
-                        <Chip
-                            key={type}
-                            label={KLIMOV_TYPES[type]?.short}
-                            size="small"
-                            onDelete={() => setSelectedKlimovTypes(prev => prev.filter(t => t !== type))}
-                            sx={{
-                                backgroundColor: alpha(KLIMOV_TYPES[type]?.color || '#6366f1', 0.1),
-                                color: KLIMOV_TYPES[type]?.color || '#6366f1',
-                            }}
-                        />
-                    ))}
-                    <Button
-                        size="small"
-                        onClick={clearFilters}
-                        sx={{ ml: 'auto' }}
-                    >
-                        Очистить все
-                    </Button>
-                </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {searchTerm && <Chip label={`Поиск: "${searchTerm}"`} size="small" onDelete={() => { setSearchTerm(''); setSearchInput(''); }} />}
+                {city && <Chip label={`Город: ${city}`} size="small" onDelete={() => setCity('')} icon={<LocationCityIcon />} />}
+                {region && <Chip label={`Регион: ${region}`} size="small" onDelete={() => setRegion('')} />}
+                {form && <Chip label={`Форма: ${FORM_LABELS[form]}`} size="small" onDelete={() => setForm('')} icon={<ClassIcon />} />}
+                {fundingType && <Chip label={`Финансирование: ${FUNDING_LABELS[fundingType]}`} size="small" onDelete={() => setFundingType('')} icon={<AttachMoneyIcon />} />}
+                {durationRange !== 'all' && <Chip label={`Срок: ${DURATION_RANGES.find(r => r.value === durationRange)?.label}`} size="small" onDelete={() => setDurationRange('all')} icon={<AccessTimeIcon />} />}
+                {educationLevel && <Chip label={`Уровень: ${educationLevel === 'SPO' ? 'СПО' : 'ВО'}`} size="small" onDelete={() => setEducationLevel('')} icon={<SchoolIcon />} />}
+                {selectedKlimovTypes.map(type => (
+                    <Chip key={type} label={KLIMOV_TYPES[type]?.name} size="small" onDelete={() => setSelectedKlimovTypes(prev => prev.filter(t => t !== type))} sx={{ bgcolor: alpha(KLIMOV_TYPES[type]?.color, 0.1), color: KLIMOV_TYPES[type]?.color }} />
+                ))}
+                <Button size="small" onClick={clearFilters} startIcon={<ClearIcon />}>Очистить все</Button>
             </Box>
         );
     };
 
-    const renderSaveFiltersDialog = () => (
-        <Dialog open={saveFiltersDialogOpen} onClose={() => setSaveFiltersDialogOpen(false)}>
-            <DialogTitle>Сохранить фильтры</DialogTitle>
-            <DialogContent>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Название пресета"
-                    fullWidth
-                    value={newPresetName}
-                    onChange={(e) => setNewPresetName(e.target.value)}
-                    placeholder="Например: Бюджетные в Москве"
-                />
-                <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                        Сохранятся текущие фильтры:
-                    </Typography>
-                    <Box sx={{ mt: 1 }}>
-                        {searchTerm && <Typography variant="caption" display="block">Поиск: {searchTerm}</Typography>}
-                        {city && <Typography variant="caption" display="block">Город: {city}</Typography>}
-                        {form && <Typography variant="caption" display="block">Форма: {FORM_LABELS[form]}</Typography>}
-                        {fundingType && <Typography variant="caption" display="block">Финансирование: {FUNDING_LABELS[fundingType]}</Typography>}
-                        {durationRange !== 'all' && <Typography variant="caption" display="block">Срок: {DURATION_RANGES.find(r => r.value === durationRange)?.label}</Typography>}
-                    </Box>
-                </Box>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setSaveFiltersDialogOpen(false)}>Отмена</Button>
-                <Button 
-                    onClick={saveFilterPreset} 
-                    variant="contained"
-                    disabled={!newPresetName.trim()}
-                >
-                    Сохранить
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-
     if (loading && page === 1) {
-        return (
-            <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '100vh',
-                flexDirection: 'column',
-                gap: 2 
-            }}>
-                <CircularProgress />
-                <Typography variant="body2" color="text.secondary">
-                    Загрузка специальностей...
-                </Typography>
-            </Box>
-        );
+        return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress size={48} /></Box>;
     }
 
     return (
-        <Box sx={{ 
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-            py: 6,
-        }}>
+        <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', py: 4 }}>
             <Container maxWidth="xl">
-                <Box sx={{ mb: 6 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
-                        Каталог специальностей СПО
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Найдите подходящую специальность для поступления в колледж
-                    </Typography>
-                </Box>
+                <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Каталог специальностей СПО</Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>Найдите подходящую специальность для поступления в колледж</Typography>
 
-                <Card sx={{ borderRadius: 3, mb: 4, p: 3 }}>
-                    <form onSubmit={handleSearchSubmit}>
-                        <Grid container spacing={3} alignItems="center">
-                            <Grid item xs={12} md={6} lg={4}>
-                                <TextField
-                                    fullWidth
-                                    placeholder="Поиск по названию, коду, колледжу или городу..."
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon color="action" />
-                                            </InputAdornment>
-                                        ),
-                                        endAdornment: searchInput && (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => {
-                                                        setSearchInput('');
-                                                        setSearchTerm('');
-                                                    }}
-                                                    edge="end"
-                                                >
-                                                    <ClearIcon fontSize="small" />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                />
-                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                    Нажмите Enter для поиска
-                                </Typography>
-                            </Grid>
-                            
-                            <Grid item xs={12} md={6} lg={8}>
-                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                    <FormControl sx={{ minWidth: 120 }} size="small">
-                                        <InputLabel>Сортировка</InputLabel>
-                                        <Select
-                                            value={sortBy}
-                                            onChange={(e) => {
-                                                setSortBy(e.target.value);
-                                                setPage(1);
-                                            }}
-                                            label="Сортировка"
-                                        >
-                                            <MenuItem value="name">По названию</MenuItem>
-                                            <MenuItem value="code">По коду</MenuItem>
-                                            <MenuItem value="duration">По сроку обучения</MenuItem>
-                                            <MenuItem value="collegeCount">По колледжам</MenuItem>
-                                            {user && <MenuItem value="match">По совпадению</MenuItem>}
-                                        </Select>
-                                    </FormControl>
-                                    
-                                    <ToggleButtonGroup
-                                        value={sortOrder}
-                                        exclusive
-                                        onChange={(e, value) => {
-                                            if (value) {
-                                                setSortOrder(value);
-                                                setPage(1);
-                                            }
-                                        }}
-                                        size="small"
-                                    >
-                                        <ToggleButton value="asc">
-                                            <SortIcon sx={{ transform: 'rotate(-90deg)' }} />
-                                        </ToggleButton>
-                                        <ToggleButton value="desc">
-                                            <SortIcon sx={{ transform: 'rotate(90deg)' }} />
-                                        </ToggleButton>
-                                    </ToggleButtonGroup>
-                                    
-                                    {isMobile && (
-                                        <Button
-                                            type="submit"
-                                            variant="contained"
-                                            startIcon={<SearchIcon />}
-                                            size="small"
-                                        >
-                                            Поиск
-                                        </Button>
-                                    )}
-                                    
-                                    {isMobile && (
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<FilterListIcon />}
-                                            onClick={() => setMobileFiltersOpen(true)}
-                                            size="small"
-                                        >
-                                            Фильтры
-                                            {hasActiveFilters() && (
-                                                <Badge 
-                                                    badgeContent="!" 
-                                                    color="error" 
-                                                    sx={{ ml: 1 }}
-                                                />
-                                            )}
-                                        </Button>
-                                    )}
-                                    
-                                    {selectedSpecialties.length > 0 && (
-                                        <Button
-                                            variant="contained"
-                                            startIcon={<CompareIcon />}
-                                            component={Link}
-                                            to={`/specialties/compare?ids=${selectedSpecialties.join(',')}`}
-                                            size="small"
-                                        >
-                                            Сравнить ({selectedSpecialties.length})
-                                        </Button>
-                                    )}
-                                    
-                                    {hasActiveFilters() && (
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<ClearIcon />}
-                                            onClick={clearFilters}
-                                            size="small"
-                                        >
-                                            Сбросить
-                                        </Button>
-                                    )}
-                                    
-                                    {!isMobile && (
-                                        <Button
-                                            type="submit"
-                                            variant="contained"
-                                            startIcon={<SearchIcon />}
-                                            size="small"
-                                        >
-                                            Поиск
-                                        </Button>
-                                    )}
-                                </Box>
-                            </Grid>
+                {/* Search Bar */}
+                <Card sx={{ borderRadius: 3, mb: 3, p: 3 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={5}>
+                            <TextField fullWidth placeholder="Поиск по названию, коду, колледжу или городу..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} />
                         </Grid>
-                    </form>
-                    
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Найдено специальностей: {total}
-                        </Typography>
-                        
-                        {selectedSpecialties.length > 0 && (
-                            <Button
-                                size="small"
-                                onClick={() => setSelectedSpecialties([])}
-                            >
-                                Очистить выбор
-                            </Button>
-                        )}
-                    </Box>
+                        <Grid item xs={12} md={7}>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <FormControl sx={{ minWidth: 130 }} size="small">
+                                    <InputLabel>Сортировка</InputLabel>
+                                    <Select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} label="Сортировка">
+                                        <MenuItem value="name">По названию</MenuItem>
+                                        <MenuItem value="code">По коду</MenuItem>
+                                        <MenuItem value="duration">По сроку</MenuItem>
+                                        <MenuItem value="collegeCount">По колледжам</MenuItem>
+                                        {user && <MenuItem value="match">По совпадению</MenuItem>}
+                                    </Select>
+                                </FormControl>
+                                <ToggleButtonGroup value={sortOrder} exclusive onChange={(e, val) => { if (val) { setSortOrder(val); setPage(1); } }} size="small">
+                                    <ToggleButton value="asc"><SortIcon sx={{ transform: 'rotate(-90deg)' }} /></ToggleButton>
+                                    <ToggleButton value="desc"><SortIcon sx={{ transform: 'rotate(90deg)' }} /></ToggleButton>
+                                </ToggleButtonGroup>
+                                {selectedSpecialties.length > 0 && (
+                                    <Button variant="contained" startIcon={<CompareIcon />} component={Link} to={`/specialties/compare?ids=${selectedSpecialties.join(',')}`} sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>Сравнить ({selectedSpecialties.length})</Button>
+                                )}
+                            </Box>
+                        </Grid>
+                    </Grid>
                 </Card>
 
-                {error && (
-                    <Alert severity="error" sx={{ mb: 4 }}>
-                        {error}
-                    </Alert>
+                {/* Filter Chips Row */}
+                <Paper sx={{ borderRadius: 3, p: 2, mb: 3, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mr: 1 }}>Фильтры:</Typography>
+                    
+                    <Chip label="Регион" icon={<LocationCityIcon />} onClick={(e) => setRegionAnchorEl(e.currentTarget)} variant={region ? "filled" : "outlined"} color={region ? "primary" : "default"} onDelete={region ? () => setRegion('') : undefined} />
+                    <Chip label="Город" icon={<LocationCityIcon />} onClick={(e) => setCityAnchorEl(e.currentTarget)} variant={city ? "filled" : "outlined"} color={city ? "primary" : "default"} onDelete={city ? () => setCity('') : undefined} />
+                    <Chip label="Уровень" icon={<SchoolIcon />} onClick={(e) => setEducationAnchorEl(e.currentTarget)} variant={educationLevel ? "filled" : "outlined"} color={educationLevel ? "primary" : "default"} onDelete={educationLevel ? () => setEducationLevel('') : undefined} />
+                    <Chip label="Форма" icon={<ClassIcon />} onClick={(e) => setFormAnchorEl(e.currentTarget)} variant={form ? "filled" : "outlined"} color={form ? "primary" : "default"} onDelete={form ? () => setForm('') : undefined} />
+                    <Chip label="Срок" icon={<AccessTimeIcon />} onClick={(e) => setDurationAnchorEl(e.currentTarget)} variant={durationRange !== 'all' ? "filled" : "outlined"} color={durationRange !== 'all' ? "primary" : "default"} onDelete={durationRange !== 'all' ? () => setDurationRange('all') : undefined} />
+                    <Chip label="Финансирование" icon={<AttachMoneyIcon />} onClick={(e) => setFundingAnchorEl(e.currentTarget)} variant={fundingType ? "filled" : "outlined"} color={fundingType ? "primary" : "default"} onDelete={fundingType ? () => setFundingType('') : undefined} />
+                    <Chip label="Типы по Климову" icon={<PsychologyIcon />} onClick={(e) => setKlimovAnchorEl(e.currentTarget)} variant={selectedKlimovTypes.length > 0 ? "filled" : "outlined"} color={selectedKlimovTypes.length > 0 ? "primary" : "default"} onDelete={selectedKlimovTypes.length > 0 ? () => setSelectedKlimovTypes([]) : undefined} />
+                    
+                    {hasActiveFilters() && (
+                        <Button size="small" onClick={clearFilters} startIcon={<ClearIcon />} sx={{ ml: 'auto' }}>Сбросить все</Button>
+                    )}
+                </Paper>
+
+                {/* Active Filters Display */}
+                {renderActiveFiltersChips()}
+
+                {/* Results Count */}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Найдено специальностей: <strong>{total}</strong></Typography>
+
+                {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+                {/* Specialties Grid */}
+                {specialties.length === 0 ? (
+                    <Card sx={{ p: 8, textAlign: 'center' }}>
+                        <SchoolIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2, opacity: 0.3 }} />
+                        <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>Специальности не найдены</Typography>
+                        <Button variant="contained" onClick={clearFilters}>Сбросить фильтры</Button>
+                    </Card>
+                ) : (
+                    <>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 3 }}>
+                            {specialties.map((specialty) => (
+                                <Box key={specialty._id}>{renderSpecialtyCard(specialty)}</Box>
+                            ))}
+                        </Box>
+                        {totalPages > 1 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+                                <Pagination count={totalPages} page={page} onChange={(e, val) => { setPage(val); window.scrollTo({ top: 0, behavior: 'smooth' }); }} color="primary" size="large" showFirstButton showLastButton />
+                            </Box>
+                        )}
+                    </>
                 )}
 
-                <Grid container spacing={4}>
-                    {!isMobile && (
-                        <Grid item xs={12} md={3}>
-                            {renderFilters()}
-                        </Grid>
-                    )}
+                {/* Popovers for filters */}
+                {renderFilterPopover(regionAnchorEl, setRegionAnchorEl, "Выберите регион", (
+                    <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                        <Button fullWidth size="small" onClick={() => { setRegion(''); setRegionAnchorEl(null); }} sx={{ justifyContent: 'flex-start', mb: 1 }}>Все регионы</Button>
+                        {filtersData.regions.map(r => <Button key={r} fullWidth size="small" onClick={() => { setRegion(r); setRegionAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>{r}</Button>)}
+                    </Box>
+                ))}
 
-                    <Grid item xs={12} md={isMobile ? 12 : 9}>
-                        {renderActiveFilters()}
-                        
-                        {specialties.length === 0 ? (
-                            <Card sx={{ p: 8, textAlign: 'center', borderRadius: 3 }}>
-                                <SchoolIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
-                                <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-                                    Специальности не найдены
-                                </Typography>
-                                <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 500, mx: 'auto' }}>
-                                    Попробуйте изменить параметры поиска или сбросить фильтры
-                                </Typography>
-                                <Button variant="contained" onClick={clearFilters}>
-                                    Сбросить фильтры
-                                </Button>
-                            </Card>
-                        ) : (
-                            <>
-                                <Box sx={{ 
-                                    display: 'grid',
-                                    gridTemplateColumns: {
-                                        xs: '1fr',
-                                        sm: 'repeat(2, 1fr)',
-                                        md: 'repeat(3, 1fr)',
-                                        lg: 'repeat(4, 1fr)'  // ← 4 карточки в ряд на больших экранах
-                                    },
-                                    gap: 2.5,
-                                    justifyContent: 'center'
-                                }}>
-                                    {specialties.map((specialty) => (
-                                        <Box key={specialty._id} sx={{ display: 'flex', justifyContent: 'center' }}>
-                                            {renderSpecialtyCard(specialty)}
-                                        </Box>
-                                    ))}
-                                </Box>
-                                
-                                {totalPages > 1 && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-                                        <Pagination
-                                            count={totalPages}
-                                            page={page}
-                                            onChange={(event, value) => {
-                                                setPage(value);
-                                                window.scrollTo({
-                                                    top: 0,
-                                                    behavior: 'smooth'
-                                                });
-                                            }}
-                                            color="primary"
-                                            size="large"
-                                            showFirstButton
-                                            showLastButton
-                                        />
-                                    </Box>
-                                )}
-                            </>
-                        )}
-                        
-                        {selectedSpecialties.length > 0 && (
-                            <Paper 
-                                elevation={4}
-                                sx={{ 
-                                    position: 'sticky', 
-                                    bottom: 20, 
-                                    zIndex: 1000, 
-                                    mt: 4,
-                                    p: 3, 
-                                    borderRadius: 3,
-                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                    color: 'white'
-                                }}
-                            >
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Box>
-                                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-                                            Готовы сравнить?
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                                            Выбрано {selectedSpecialties.length} из 3 возможных специальностей для сравнения
-                                        </Typography>
-                                    </Box>
-                                    <Button
-                                        component={Link}
-                                        to={`/specialties/compare?ids=${selectedSpecialties.join(',')}`}
-                                        variant="contained"
-                                        startIcon={<CompareIcon />}
-                                        sx={{
-                                            bgcolor: 'white',
-                                            color: '#059669',
-                                            fontWeight: 700,
-                                            '&:hover': {
-                                                bgcolor: 'grey.100',
-                                            }
-                                        }}
-                                    >
-                                        Перейти к сравнению
-                                    </Button>
-                                </Box>
-                            </Paper>
-                        )}
-                    </Grid>
-                </Grid>
-                
-                {renderMobileFilters()}
-                {renderSaveFiltersDialog()}
+                {renderFilterPopover(cityAnchorEl, setCityAnchorEl, "Выберите город", (
+                    <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                        <Button fullWidth size="small" onClick={() => { setCity(''); setCityAnchorEl(null); }} sx={{ justifyContent: 'flex-start', mb: 1 }}>Все города</Button>
+                        {filtersData.cities.map(c => <Button key={c} fullWidth size="small" onClick={() => { setCity(c); setCityAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>{c}</Button>)}
+                    </Box>
+                ))}
+
+                {renderFilterPopover(educationAnchorEl, setEducationAnchorEl, "Уровень образования", (
+                    <Box>
+                        <Button fullWidth size="small" onClick={() => { setEducationLevel(''); setEducationAnchorEl(null); }} sx={{ justifyContent: 'flex-start', mb: 1 }}>Все уровни</Button>
+                        <Button fullWidth size="small" onClick={() => { setEducationLevel('SPO'); setEducationAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>СПО (Среднее профессиональное)</Button>
+                        <Button fullWidth size="small" onClick={() => { setEducationLevel('VO'); setEducationAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>ВО (Высшее образование)</Button>
+                    </Box>
+                ))}
+
+                {renderFilterPopover(formAnchorEl, setFormAnchorEl, "Форма обучения", (
+                    <Box>
+                        <Button fullWidth size="small" onClick={() => { setForm(''); setFormAnchorEl(null); }} sx={{ justifyContent: 'flex-start', mb: 1 }}>Все формы</Button>
+                        {filtersData.forms.map(f => <Button key={f} fullWidth size="small" onClick={() => { setForm(f); setFormAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>{FORM_LABELS[f]}</Button>)}
+                    </Box>
+                ))}
+
+                {renderFilterPopover(durationAnchorEl, setDurationAnchorEl, "Срок обучения", (
+                    <Box>
+                        {DURATION_RANGES.map(d => <Button key={d.value} fullWidth size="small" onClick={() => { setDurationRange(d.value); setDurationAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>{d.label}</Button>)}
+                    </Box>
+                ))}
+
+                {renderFilterPopover(fundingAnchorEl, setFundingAnchorEl, "Тип финансирования", (
+                    <Box>
+                        <Button fullWidth size="small" onClick={() => { setFundingType(''); setFundingAnchorEl(null); }} sx={{ justifyContent: 'flex-start', mb: 1 }}>Все типы</Button>
+                        {filtersData.fundingTypes.map(ft => <Button key={ft} fullWidth size="small" onClick={() => { setFundingType(ft); setFundingAnchorEl(null); setPage(1); }} sx={{ justifyContent: 'flex-start' }}>{FUNDING_LABELS[ft]}</Button>)}
+                    </Box>
+                ))}
+
+                {renderFilterPopover(klimovAnchorEl, setKlimovAnchorEl, "Типы по Климову", (
+                    <Box>
+                        {Object.entries(KLIMOV_TYPES).map(([value, type]) => (
+                            <Button key={value} fullWidth size="small" onClick={() => {
+                                setSelectedKlimovTypes(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+                                setPage(1);
+                            }} sx={{ justifyContent: 'flex-start', color: selectedKlimovTypes.includes(value) ? type.color : 'inherit' }}>
+                                <Checkbox checked={selectedKlimovTypes.includes(value)} sx={{ p: 0.5, mr: 1, color: type.color }} />
+                                <span>{type.icon}</span> <span style={{ marginLeft: 8 }}>{type.name}</span>
+                            </Button>
+                        ))}
+                    </Box>
+                ))}
+
+                {/* Compare Bar */}
+                {selectedSpecialties.length > 0 && (
+                    <Paper elevation={4} sx={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, p: 2, borderRadius: 3, bgcolor: '#10b981', color: 'white', minWidth: { xs: '90%', sm: 400 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                            <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 700 }}>Готовы сравнить?</Typography>
+                                <Typography variant="body2">Выбрано {selectedSpecialties.length} из 3 возможных</Typography>
+                            </Box>
+                            <Button component={Link} to={`/specialties/compare?ids=${selectedSpecialties.join(',')}`} variant="contained" startIcon={<CompareIcon />} sx={{ bgcolor: 'white', color: '#059669', '&:hover': { bgcolor: 'grey.100' } }}>Сравнить</Button>
+                        </Box>
+                    </Paper>
+                )}
             </Container>
         </Box>
     );

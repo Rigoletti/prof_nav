@@ -11,15 +11,12 @@ import {
     Alert,
     InputAdornment,
     IconButton,
-    Grid,
     alpha,
     useTheme,
-    CircularProgress,
     Fade,
     Zoom,
-    Divider,
-    FormControlLabel,
-    Checkbox
+    CircularProgress,
+    Divider
 } from '@mui/material';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import EmailIcon from '@mui/icons-material/Email';
@@ -30,7 +27,6 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LoginIcon from '@mui/icons-material/Login';
-import VerifiedIcon from '@mui/icons-material/Verified';
 
 const Register = () => {
     const theme = useTheme();
@@ -43,68 +39,248 @@ const Register = () => {
         confirmPassword: '',
         firstName: '',
         lastName: '',
-        middleName: '' // Добавляем отчество
+        middleName: ''
     });
-    const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [errors, setErrors] = useState({
+        email: '',
+        firstName: '',
+        lastName: '',
+        middleName: '',
+        password: '',
+        confirmPassword: ''
+    });
+    const [touched, setTouched] = useState({
+        email: false,
+        firstName: false,
+        lastName: false,
+        middleName: false,
+        password: false,
+        confirmPassword: false
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [hover, setHover] = useState(false);
 
+    // Регулярные выражения для валидации
+    const cyrillicNameRegex = /^[А-ЯЁа-яё\s\-]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const validateName = (name, fieldName) => {
+        if (!name.trim()) {
+            return `${fieldName} обязательно для заполнения`;
+        }
+        if (!cyrillicNameRegex.test(name)) {
+            return `${fieldName} должно содержать только буквы кириллицы`;
+        }
+        if (name.trim().length < 2) {
+            return `${fieldName} должно содержать минимум 2 символа`;
+        }
+        if (name.trim().length > 50) {
+            return `${fieldName} должно содержать максимум 50 символов`;
+        }
+        return '';
+    };
+
+    const validateEmail = (email) => {
+        if (!email) {
+            return 'Email обязателен для заполнения';
+        }
+        if (!emailRegex.test(email)) {
+            return 'Введите корректный email адрес';
+        }
+        if (email.length > 100) {
+            return 'Email не должен превышать 100 символов';
+        }
+        return '';
+    };
+
+    const validatePassword = (password) => {
+        if (!password) {
+            return 'Пароль обязателен для заполнения';
+        }
+        if (password.length < 6) {
+            return 'Пароль должен содержать минимум 6 символов';
+        }
+        if (password.length > 50) {
+            return 'Пароль должен содержать максимум 50 символов';
+        }
+        return '';
+    };
+
+    const validateConfirmPassword = (password, confirmPassword) => {
+        if (!confirmPassword) {
+            return 'Подтверждение пароля обязательно';
+        }
+        if (password !== confirmPassword) {
+            return 'Пароли не совпадают';
+        }
+        return '';
+    };
+
     const handleChange = (e) => {
+        const { name, value } = e.target;
+        
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: value
         });
+        
         setError('');
+        
+        // Если поле было тронуто, валидируем в реальном времени
+        if (touched[name]) {
+            let errorMessage = '';
+            switch (name) {
+                case 'lastName':
+                    errorMessage = validateName(value, 'Фамилия');
+                    break;
+                case 'firstName':
+                    errorMessage = validateName(value, 'Имя');
+                    break;
+                case 'middleName':
+                    if (value.trim()) {
+                        errorMessage = validateName(value, 'Отчество');
+                    }
+                    break;
+                case 'email':
+                    errorMessage = validateEmail(value);
+                    break;
+                case 'password':
+                    errorMessage = validatePassword(value);
+                    if (!errorMessage && touched.confirmPassword && formData.confirmPassword) {
+                        const confirmError = validateConfirmPassword(value, formData.confirmPassword);
+                        setErrors(prev => ({ ...prev, confirmPassword: confirmError }));
+                    }
+                    break;
+                case 'confirmPassword':
+                    errorMessage = validateConfirmPassword(formData.password, value);
+                    break;
+                default:
+                    break;
+            }
+            
+            setErrors(prev => ({ ...prev, [name]: errorMessage }));
+        }
     };
 
-    const handleAgreementChange = (e) => {
-        setAgreedToTerms(e.target.checked);
+    const handleBlur = (e) => {
+        const { name, value } = e.target;
+        
+        // Отмечаем поле как тронутое
+        setTouched(prev => ({ ...prev, [name]: true }));
+        
+        // Валидируем при потере фокуса
+        let errorMessage = '';
+        switch (name) {
+            case 'lastName':
+                errorMessage = validateName(value, 'Фамилия');
+                break;
+            case 'firstName':
+                errorMessage = validateName(value, 'Имя');
+                break;
+            case 'middleName':
+                if (value.trim()) {
+                    errorMessage = validateName(value, 'Отчество');
+                }
+                break;
+            case 'email':
+                errorMessage = validateEmail(value);
+                break;
+            case 'password':
+                errorMessage = validatePassword(value);
+                if (!errorMessage && touched.confirmPassword && formData.confirmPassword) {
+                    const confirmError = validateConfirmPassword(value, formData.confirmPassword);
+                    setErrors(prev => ({ ...prev, confirmPassword: confirmError }));
+                }
+                break;
+            case 'confirmPassword':
+                errorMessage = validateConfirmPassword(formData.password, value);
+                break;
+            default:
+                break;
+        }
+        
+        setErrors(prev => ({ ...prev, [name]: errorMessage }));
     };
 
-   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    const { email, password, confirmPassword, firstName, lastName, middleName } = formData;
-    
-    if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        setLoading(false);
-        return;
-    }
-    
-    if (password.length < 6) {
-        setError('Пароль должен содержать минимум 6 символов');
-        setLoading(false);
-        return;
-    }
-    
-    const userData = {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        middleName: middleName ? middleName.trim() : '',
-        email: email.trim().toLowerCase(),
-        password
+    const validateForm = () => {
+        // Отмечаем все поля как тронутые
+        const allTouched = {
+            lastName: true,
+            firstName: true,
+            middleName: !!formData.middleName.trim(),
+            email: true,
+            password: true,
+            confirmPassword: true
+        };
+        setTouched(allTouched);
+        
+        const newErrors = {
+            lastName: validateName(formData.lastName, 'Фамилия'),
+            firstName: validateName(formData.firstName, 'Имя'),
+            middleName: formData.middleName.trim() ? validateName(formData.middleName, 'Отчество') : '',
+            email: validateEmail(formData.email),
+            password: validatePassword(formData.password),
+            confirmPassword: validateConfirmPassword(formData.password, formData.confirmPassword)
+        };
+        
+        setErrors(newErrors);
+        
+        return !Object.values(newErrors).some(error => error !== '');
     };
-    
-    console.log('Register form submitted with:', { ...userData, password: '***' });
-    
-    const result = await register(userData);
-    
-    if (result.success) {
-        console.log('Registration successful, redirecting to profile');
-        navigate('/profile');
-    } else {
-        console.log('Registration failed:', result.error);
-        setError(result.error);
-    }
-    
-    setLoading(false);
-};
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        setError('');
+        
+        if (!validateForm()) {
+            setError('Пожалуйста, исправьте ошибки в форме');
+            return;
+        }
+        
+        setLoading(true);
+        
+        const { email, password, firstName, lastName, middleName } = formData;
+        
+        const userData = {
+            firstName: firstName.trim().replace(/\s+/g, ' '),
+            lastName: lastName.trim().replace(/\s+/g, ' '),
+            middleName: middleName ? middleName.trim().replace(/\s+/g, ' ') : '',
+            email: email.trim().toLowerCase(),
+            password
+        };
+        
+        console.log('Register form submitted with:', { ...userData, password: '***' });
+        
+        const result = await register(userData);
+        
+        if (result.success) {
+            console.log('Registration successful, redirecting to profile');
+            navigate('/profile');
+        } else {
+            console.log('Registration failed:', result.error);
+            setError(result.error);
+        }
+        
+        setLoading(false);
+    };
+
+    const isFormValid = () => {
+        return !errors.lastName && 
+               !errors.firstName && 
+               !errors.middleName && 
+               !errors.email && 
+               !errors.password && 
+               !errors.confirmPassword &&
+               formData.lastName &&
+               formData.firstName &&
+               formData.email &&
+               formData.password &&
+               formData.confirmPassword;
+    };
 
     return (
         <Box
@@ -113,13 +289,13 @@ const Register = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 50%)',
+                background: 'radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 50%)',
                 backgroundColor: '#f8fafc',
                 py: { xs: 2, sm: 4 },
                 px: { xs: 1, sm: 2 },
             }}
         >
-            <Container maxWidth="md">
+            <Container maxWidth="sm">
                 <Fade in timeout={800}>
                     <Box>
                         <Button
@@ -147,7 +323,7 @@ const Register = () => {
                             <Paper
                                 elevation={0}
                                 sx={{
-                                    p: { xs: 3, sm: 4, md: 6 },
+                                    p: { xs: 3, sm: 4, md: 5 },
                                     borderRadius: 4,
                                     background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
                                     boxShadow: `
@@ -168,298 +344,224 @@ const Register = () => {
                                     }
                                 }}
                             >
-                                <Box sx={{ textAlign: 'center', mb: 5 }}>
+                                <Box sx={{ textAlign: 'center', mb: 4 }}>
                                     <Box
                                         sx={{
-                                            width: 80,
-                                            height: 80,
+                                            width: 70,
+                                            height: 70,
                                             borderRadius: 3,
                                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             mx: 'auto',
-                                            mb: 3,
+                                            mb: 2.5,
                                             color: 'white',
                                             boxShadow: '0 10px 25px rgba(99, 102, 241, 0.3)',
-                                            position: 'relative',
-                                            '&::after': {
-                                                content: '""',
-                                                position: 'absolute',
-                                                top: -5,
-                                                left: -5,
-                                                right: -5,
-                                                bottom: -5,
-                                                borderRadius: 4,
-                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                opacity: 0.2,
-                                                zIndex: -1,
-                                            }
                                         }}
                                     >
-                                        <PsychologyIcon sx={{ fontSize: 40 }} />
+                                        <PsychologyIcon sx={{ fontSize: 35 }} />
                                     </Box>
                                     <Typography 
-                                        variant="h3" 
+                                        variant="h4" 
                                         sx={{ 
-                                            fontWeight: 800, 
-                                            mb: 1.5,
+                                            fontWeight: 700, 
+                                            mb: 1,
                                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                             WebkitBackgroundClip: 'text',
                                             WebkitTextFillColor: 'transparent',
                                             backgroundClip: 'text',
                                         }}
                                     >
-                                        Начните своё путешествие
+                                        Добро пожаловать!
                                     </Typography>
                                     <Typography 
-                                        variant="body1" 
+                                        variant="body2" 
                                         color="text.secondary"
-                                        sx={{ 
-                                            fontSize: '1.1rem',
-                                            maxWidth: '400px',
-                                            mx: 'auto',
-                                            lineHeight: 1.6
-                                        }}
                                     >
-                                        Присоединяйтесь к тысячам профессионалов, которые уже нашли свой путь
+                                        Заполните форму ниже чтобы создать аккаунт
                                     </Typography>
                                 </Box>
 
-                                {error && (
+                                {(error || Object.values(errors).some(e => e && Object.values(touched).some(t => t))) && (
                                     <Fade in>
                                         <Alert 
                                             severity="error" 
                                             sx={{ 
-                                                mb: 4,
+                                                mb: 3,
                                                 borderRadius: 2,
-                                                border: '1px solid',
-                                                borderColor: 'error.light',
-                                                backgroundColor: alpha(theme.palette.error.main, 0.05),
-                                                '& .MuiAlert-icon': {
-                                                    color: 'error.main'
-                                                }
                                             }}
                                         >
-                                            {error}
+                                            {error || 'Пожалуйста, исправьте ошибки в форме'}
                                         </Alert>
                                     </Fade>
                                 )}
 
                                 <form onSubmit={handleSubmit}>
-                                    <Grid container spacing={3}>
-                                        <Grid item xs={12} sm={4}>
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                                    Фамилия*
-                                                </Typography>
-                                                <TextField
-                                                    fullWidth
-                                                    placeholder="Иванов"
-                                                    name="lastName"
-                                                    value={formData.lastName}
-                                                    onChange={handleChange}
-                                                    required
-                                                    disabled={loading}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            borderRadius: 3,
-                                                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                                                            transition: 'all 0.2s',
-                                                            '&:hover': {
-                                                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                                '& fieldset': {
-                                                                    borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                                }
-                                                            },
-                                                            '&.Mui-focused': {
-                                                                backgroundColor: 'white',
-                                                                '& fieldset': {
-                                                                    borderWidth: 2,
-                                                                    borderColor: theme.palette.primary.main,
-                                                                }
-                                                            },
-                                                            '& fieldset': {
-                                                                borderColor: alpha(theme.palette.divider, 0.5),
-                                                            }
-                                                        },
-                                                    }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <PersonIcon 
-                                                                    sx={{ 
-                                                                        color: alpha(theme.palette.primary.main, 0.6),
-                                                                        ml: 0.5
-                                                                    }} 
-                                                                />
-                                                            </InputAdornment>
-                                                        ),
-                                                    }}
-                                                />
-                                            </Box>
-                                        </Grid>
-                                        <Grid item xs={12} sm={4}>
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                                    Имя*
-                                                </Typography>
-                                                <TextField
-                                                    fullWidth
-                                                    placeholder="Иван"
-                                                    name="firstName"
-                                                    value={formData.firstName}
-                                                    onChange={handleChange}
-                                                    required
-                                                    disabled={loading}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            borderRadius: 3,
-                                                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                                                            transition: 'all 0.2s',
-                                                            '&:hover': {
-                                                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                                '& fieldset': {
-                                                                    borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                                }
-                                                            },
-                                                            '&.Mui-focused': {
-                                                                backgroundColor: 'white',
-                                                                '& fieldset': {
-                                                                    borderWidth: 2,
-                                                                    borderColor: theme.palette.primary.main,
-                                                                }
-                                                            },
-                                                            '& fieldset': {
-                                                                borderColor: alpha(theme.palette.divider, 0.5),
-                                                            }
-                                                        },
-                                                    }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <PersonIcon 
-                                                                    sx={{ 
-                                                                        color: alpha(theme.palette.primary.main, 0.6),
-                                                                        ml: 0.5
-                                                                    }} 
-                                                                />
-                                                            </InputAdornment>
-                                                        ),
-                                                    }}
-                                                />
-                                            </Box>
-                                        </Grid>
-                                        <Grid item xs={12} sm={4}>
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                                    Отчество
-                                                </Typography>
-                                                <TextField
-                                                    fullWidth
-                                                    placeholder="Иванович"
-                                                    name="middleName"
-                                                    value={formData.middleName}
-                                                    onChange={handleChange}
-                                                    disabled={loading}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            borderRadius: 3,
-                                                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                                                            transition: 'all 0.2s',
-                                                            '&:hover': {
-                                                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                                '& fieldset': {
-                                                                    borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                                }
-                                                            },
-                                                            '&.Mui-focused': {
-                                                                backgroundColor: 'white',
-                                                                '& fieldset': {
-                                                                    borderWidth: 2,
-                                                                    borderColor: theme.palette.primary.main,
-                                                                }
-                                                            },
-                                                            '& fieldset': {
-                                                                borderColor: alpha(theme.palette.divider, 0.5),
-                                                            }
-                                                        },
-                                                    }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <PersonIcon 
-                                                                    sx={{ 
-                                                                        color: alpha(theme.palette.primary.main, 0.6),
-                                                                        ml: 0.5
-                                                                    }} 
-                                                                />
-                                                            </InputAdornment>
-                                                        ),
-                                                    }}
-                                                />
-                                            </Box>
-                                        </Grid>
-                                    </Grid>
-
-                                    <Box sx={{ mb: 2, mt: 1 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                            Email*
+                                    {/* Фамилия */}
+                                    <Box sx={{ mb: 2.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Фамилия *
                                         </Typography>
                                         <TextField
                                             fullWidth
-                                            placeholder="your.email@example.com"
-                                            name="email"
-                                            type="email"
-                                            value={formData.email}
+                                            placeholder="Иванов"
+                                            name="lastName"
+                                            value={formData.lastName}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             required
                                             disabled={loading}
+                                            error={touched.lastName && !!errors.lastName}
+                                            helperText={touched.lastName && errors.lastName}
                                             variant="outlined"
                                             sx={{
                                                 '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 3,
-                                                    backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
                                                     transition: 'all 0.2s',
                                                     '&:hover': {
-                                                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                        '& fieldset': {
-                                                            borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                        }
+                                                        backgroundColor: '#f1f3f5',
                                                     },
                                                     '&.Mui-focused': {
                                                         backgroundColor: 'white',
-                                                        '& fieldset': {
-                                                            borderWidth: 2,
-                                                            borderColor: theme.palette.primary.main,
-                                                        }
-                                                    },
-                                                    '& fieldset': {
-                                                        borderColor: alpha(theme.palette.divider, 0.5),
                                                     }
                                                 },
                                             }}
                                             InputProps={{
                                                 startAdornment: (
                                                     <InputAdornment position="start">
-                                                        <EmailIcon 
-                                                            sx={{ 
-                                                                color: alpha(theme.palette.primary.main, 0.6),
-                                                                ml: 0.5
-                                                            }} 
-                                                        />
+                                                        <PersonIcon sx={{ color: '#764ba2', fontSize: 20 }} />
                                                     </InputAdornment>
                                                 ),
                                             }}
                                         />
                                     </Box>
 
-                                    <Box sx={{ mb: 2 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                            Пароль*
+                                    {/* Имя */}
+                                    <Box sx={{ mb: 2.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Имя *
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            placeholder="Иван"
+                                            name="firstName"
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            required
+                                            disabled={loading}
+                                            error={touched.firstName && !!errors.firstName}
+                                            helperText={touched.firstName && errors.firstName}
+                                            variant="outlined"
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
+                                                    transition: 'all 0.2s',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f1f3f5',
+                                                    },
+                                                    '&.Mui-focused': {
+                                                        backgroundColor: 'white',
+                                                    }
+                                                },
+                                            }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <PersonIcon sx={{ color: '#764ba2', fontSize: 20 }} />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {/* Отчество */}
+                                    <Box sx={{ mb: 2.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Отчество
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            placeholder="Иванович"
+                                            name="middleName"
+                                            value={formData.middleName}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            disabled={loading}
+                                            error={touched.middleName && !!errors.middleName}
+                                            helperText={touched.middleName && errors.middleName}
+                                            variant="outlined"
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
+                                                    transition: 'all 0.2s',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f1f3f5',
+                                                    },
+                                                    '&.Mui-focused': {
+                                                        backgroundColor: 'white',
+                                                    }
+                                                },
+                                            }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <PersonIcon sx={{ color: '#764ba2', fontSize: 20 }} />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {/* Email */}
+                                    <Box sx={{ mb: 2.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Email *
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            placeholder="your@email.com"
+                                            name="email"
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            required
+                                            disabled={loading}
+                                            error={touched.email && !!errors.email}
+                                            helperText={touched.email && errors.email}
+                                            variant="outlined"
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
+                                                    transition: 'all 0.2s',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f1f3f5',
+                                                    },
+                                                    '&.Mui-focused': {
+                                                        backgroundColor: 'white',
+                                                    }
+                                                },
+                                            }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <EmailIcon sx={{ color: '#764ba2', fontSize: 20 }} />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {/* Пароль */}
+                                    <Box sx={{ mb: 2.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Пароль *
                                         </Typography>
                                         <TextField
                                             fullWidth
@@ -468,41 +570,29 @@ const Register = () => {
                                             type={showPassword ? 'text' : 'password'}
                                             value={formData.password}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             required
                                             disabled={loading}
+                                            error={touched.password && !!errors.password}
+                                            helperText={touched.password && errors.password}
                                             variant="outlined"
                                             sx={{
                                                 '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 3,
-                                                    backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
                                                     transition: 'all 0.2s',
                                                     '&:hover': {
-                                                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                        '& fieldset': {
-                                                            borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                        }
+                                                        backgroundColor: '#f1f3f5',
                                                     },
                                                     '&.Mui-focused': {
                                                         backgroundColor: 'white',
-                                                        '& fieldset': {
-                                                            borderWidth: 2,
-                                                            borderColor: theme.palette.primary.main,
-                                                        }
-                                                    },
-                                                    '& fieldset': {
-                                                        borderColor: alpha(theme.palette.divider, 0.5),
                                                     }
                                                 },
                                             }}
                                             InputProps={{
                                                 startAdornment: (
                                                     <InputAdornment position="start">
-                                                        <LockIcon 
-                                                            sx={{ 
-                                                                color: alpha(theme.palette.primary.main, 0.6),
-                                                                ml: 0.5
-                                                            }} 
-                                                        />
+                                                        <LockIcon sx={{ color: '#764ba2', fontSize: 20 }} />
                                                     </InputAdornment>
                                                 ),
                                                 endAdornment: (
@@ -510,14 +600,7 @@ const Register = () => {
                                                         <IconButton
                                                             onClick={() => setShowPassword(!showPassword)}
                                                             edge="end"
-                                                            disabled={loading}
-                                                            sx={{
-                                                                mr: 0.5,
-                                                                color: alpha(theme.palette.primary.main, 0.6),
-                                                                '&:hover': {
-                                                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                                                                }
-                                                            }}
+                                                            size="small"
                                                         >
                                                             {showPassword ? <VisibilityOff /> : <Visibility />}
                                                         </IconButton>
@@ -525,14 +608,12 @@ const Register = () => {
                                                 ),
                                             }}
                                         />
-                                        <Typography variant="caption" color="text.secondary" sx={{ ml: 2, mt: 0.5, display: 'block' }}>
-                                            Минимум 6 символов
-                                        </Typography>
                                     </Box>
 
-                                    <Box sx={{ mb: 4 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                            Подтвердите пароль*
+                                    {/* Подтверждение пароля */}
+                                    <Box sx={{ mb: 3.5 }}>
+                                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#1a1a2e' }}>
+                                            Подтверждение пароля *
                                         </Typography>
                                         <TextField
                                             fullWidth
@@ -541,41 +622,29 @@ const Register = () => {
                                             type={showConfirmPassword ? 'text' : 'password'}
                                             value={formData.confirmPassword}
                                             onChange={handleChange}
+                                            onBlur={handleBlur}
                                             required
                                             disabled={loading}
+                                            error={touched.confirmPassword && !!errors.confirmPassword}
+                                            helperText={touched.confirmPassword && errors.confirmPassword}
                                             variant="outlined"
                                             sx={{
                                                 '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 3,
-                                                    backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                                                    borderRadius: 2,
+                                                    backgroundColor: '#f8f9fa',
                                                     transition: 'all 0.2s',
                                                     '&:hover': {
-                                                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                        '& fieldset': {
-                                                            borderColor: alpha(theme.palette.primary.main, 0.4),
-                                                        }
+                                                        backgroundColor: '#f1f3f5',
                                                     },
                                                     '&.Mui-focused': {
                                                         backgroundColor: 'white',
-                                                        '& fieldset': {
-                                                            borderWidth: 2,
-                                                            borderColor: theme.palette.primary.main,
-                                                        }
-                                                    },
-                                                    '& fieldset': {
-                                                        borderColor: alpha(theme.palette.divider, 0.5),
                                                     }
                                                 },
                                             }}
                                             InputProps={{
                                                 startAdornment: (
                                                     <InputAdornment position="start">
-                                                        <LockIcon 
-                                                            sx={{ 
-                                                                color: alpha(theme.palette.primary.main, 0.6),
-                                                                ml: 0.5
-                                                            }} 
-                                                        />
+                                                        <LockIcon sx={{ color: '#764ba2', fontSize: 20 }} />
                                                     </InputAdornment>
                                                 ),
                                                 endAdornment: (
@@ -583,14 +652,7 @@ const Register = () => {
                                                         <IconButton
                                                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                                             edge="end"
-                                                            disabled={loading}
-                                                            sx={{
-                                                                mr: 0.5,
-                                                                color: alpha(theme.palette.primary.main, 0.6),
-                                                                '&:hover': {
-                                                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                                                                }
-                                                            }}
+                                                            size="small"
                                                         >
                                                             {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                                                         </IconButton>
@@ -600,215 +662,83 @@ const Register = () => {
                                         />
                                     </Box>
 
-                                    <Box 
-                                        sx={{ 
-                                            mb: 4,
-                                            p: 3,
-                                            borderRadius: 3,
-                                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                                            border: '1px solid',
-                                            borderColor: alpha(theme.palette.primary.main, 0.1),
-                                            transition: 'all 0.2s',
-                                            '&:hover': {
-                                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                borderColor: alpha(theme.palette.primary.main, 0.2),
-                                            }
-                                        }}
-                                    >
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={agreedToTerms}
-                                                    onChange={handleAgreementChange}
-                                                    disabled={loading}
-                                                    icon={
-                                                        <Box
-                                                            sx={{
-                                                                width: 20,
-                                                                height: 20,
-                                                                borderRadius: 1,
-                                                                border: '2px solid',
-                                                                borderColor: alpha(theme.palette.primary.main, 0.3),
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                            }}
-                                                        />
-                                                    }
-                                                    checkedIcon={
-                                                        <Box
-                                                            sx={{
-                                                                width: 20,
-                                                                height: 20,
-                                                                borderRadius: 1,
-                                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: 'white',
-                                                            }}
-                                                        >
-                                                            <VerifiedIcon sx={{ fontSize: 14 }} />
-                                                        </Box>
-                                                    }
-                                                    sx={{
-                                                        '&:hover': {
-                                                            '& .MuiBox-root': {
-                                                                borderColor: alpha(theme.palette.primary.main, 0.6),
-                                                            }
-                                                        }
-                                                    }}
-                                                />
-                                            }
-                                            label={
-                                                <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.6 }}>
-                                                    Я согласен(на) на обработку моих персональных данных в соответствии с{' '}
-                                                    <Button
-                                                        component={Link}
-                                                        to="/privacy"
-                                                        sx={{
-                                                            textTransform: 'none',
-                                                            fontWeight: 600,
-                                                            color: 'primary.main',
-                                                            fontSize: '0.875rem',
-                                                            p: 0,
-                                                            minWidth: 'auto',
-                                                            verticalAlign: 'baseline',
-                                                            '&:hover': {
-                                                                color: theme.palette.primary.dark,
-                                                                backgroundColor: 'transparent',
-                                                            }
-                                                        }}
-                                                    >
-                                                        Политикой конфиденциальности
-                                                    </Button>
-                                                    {' '}и даю согласие на получение информационных материалов
-                                                </Typography>
-                                            }
-                                            sx={{
-                                                alignItems: 'flex-start',
-                                                m: 0,
-                                                '& .MuiFormControlLabel-label': {
-                                                    marginTop: 0.5,
-                                                }
-                                            }}
-                                        />
-                                    </Box>
-
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, textAlign: 'center' }}>
-                                        * - обязательные поля
-                                    </Typography>
-
+                                    {/* Кнопка регистрации */}
                                     <Button
                                         type="submit"
                                         fullWidth
                                         variant="contained"
-                                        disabled={loading || !agreedToTerms}
+                                        disabled={loading || !isFormValid()}
                                         onMouseEnter={() => setHover(true)}
                                         onMouseLeave={() => setHover(false)}
                                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PersonAddIcon />}
                                         sx={{
-                                            py: 1.75,
+                                            py: 1.3,
                                             fontSize: '1rem',
                                             fontWeight: 600,
-                                            borderRadius: 3,
-                                            background: !agreedToTerms 
+                                            borderRadius: 2,
+                                            background: !isFormValid() 
                                                 ? alpha(theme.palette.grey[400], 0.5)
                                                 : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: hover && agreedToTerms
-                                                ? '0 20px 40px rgba(99, 102, 241, 0.4)'
-                                                : '0 10px 30px rgba(99, 102, 241, 0.3)',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            transform: hover && agreedToTerms ? 'translateY(-2px)' : 'none',
-                                            position: 'relative',
-                                            overflow: 'hidden',
+                                            textTransform: 'none',
+                                            boxShadow: hover && isFormValid()
+                                                ? '0 8px 20px rgba(99, 102, 241, 0.3)'
+                                                : 'none',
+                                            transition: 'all 0.3s',
+                                            transform: hover && isFormValid() ? 'translateY(-1px)' : 'none',
                                             '&:hover': {
-                                                background: agreedToTerms 
+                                                background: isFormValid() 
                                                     ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
                                                     : alpha(theme.palette.grey[400], 0.5),
-                                                transform: agreedToTerms ? 'translateY(-2px)' : 'none',
-                                            },
-                                            '&:active': {
-                                                transform: 'translateY(0)',
-                                            },
-                                            '&::after': agreedToTerms ? {
-                                                content: '""',
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: '-100%',
-                                                width: '100%',
-                                                height: '100%',
-                                                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-                                                transition: 'left 0.7s',
-                                            } : {},
-                                            '&:hover::after': agreedToTerms ? {
-                                                left: '100%',
-                                            } : {}
+                                                transform: isFormValid() ? 'translateY(-1px)' : 'none',
+                                                boxShadow: isFormValid() ? '0 8px 20px rgba(99, 102, 241, 0.3)' : 'none',
+                                            }
                                         }}
                                     >
-                                        {loading ? 'Регистрируем...' : 'Создать аккаунт'}
+                                        {loading ? 'Регистрация...' : 'Зарегистрироваться'}
                                     </Button>
                                 </form>
 
-                                <Divider sx={{ my: 4, color: 'text.secondary', '&::before, &::after': {
-                                    borderColor: alpha(theme.palette.divider, 0.3),
-                                } }}>
+                                <Divider sx={{ my: 3.5 }}>
                                     <Typography variant="body2" color="text.secondary">
                                         Уже есть аккаунт?
                                     </Typography>
                                 </Divider>
 
-                                <Box sx={{ textAlign: 'center' }}>
-                                    <Button
-                                        component={Link}
-                                        to="/login"
-                                        fullWidth
-                                        variant="outlined"
-                                        startIcon={<LoginIcon />}
-                                        disabled={loading}
-                                        sx={{
-                                            py: 1.5,
-                                            fontSize: '1rem',
-                                            fontWeight: 600,
-                                            borderRadius: 3,
-                                            borderWidth: 2,
-                                            borderColor: alpha(theme.palette.primary.main, 0.3),
-                                            color: 'primary.main',
-                                            transition: 'all 0.3s',
-                                            '&:hover': {
-                                                borderColor: 'primary.main',
-                                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                                transform: 'translateY(-1px)',
-                                                boxShadow: '0 10px 25px rgba(99, 102, 241, 0.15)',
-                                            }
-                                        }}
-                                    >
-                                        Войти в существующий аккаунт
-                                    </Button>
-                                </Box>
+                                <Button
+                                    component={Link}
+                                    to="/login"
+                                    fullWidth
+                                    variant="outlined"
+                                    startIcon={<LoginIcon />}
+                                    sx={{
+                                        py: 1.2,
+                                        fontSize: '0.95rem',
+                                        fontWeight: 600,
+                                        borderRadius: 2,
+                                        textTransform: 'none',
+                                        borderColor: '#e0e0e0',
+                                        color: '#555',
+                                        '&:hover': {
+                                            borderColor: '#764ba2',
+                                            backgroundColor: alpha('#764ba2', 0.05),
+                                        }
+                                    }}
+                                >
+                                    Войти в аккаунт
+                                </Button>
 
-                                <Box sx={{ mt: 4, textAlign: 'center' }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                                        Нажимая "Создать аккаунт", вы также соглашаетесь с нашими{' '}
-                                        <Button
-                                            component={Link}
-                                            to="/terms"
-                                            sx={{
-                                                textTransform: 'none',
-                                                fontWeight: 500,
-                                                color: 'text.secondary',
-                                                fontSize: '0.75rem',
-                                                p: 0,
-                                                minWidth: 'auto',
-                                                '&:hover': {
-                                                    color: 'primary.main',
-                                                }
-                                            }}
-                                        >
-                                            Условиями использования
-                                        </Button>
-                                    </Typography>
-                                </Box>
+                                <Typography 
+                                    variant="caption" 
+                                    color="text.secondary" 
+                                    sx={{ 
+                                        display: 'block', 
+                                        textAlign: 'center', 
+                                        mt: 2.5,
+                                        fontSize: '0.7rem'
+                                    }}
+                                >
+                                    * - обязательные поля
+                                </Typography>
                             </Paper>
                         </Zoom>
                     </Box>
