@@ -26,6 +26,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import WorkIcon from '@mui/icons-material/Work';
 import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import DescriptionIcon from '@mui/icons-material/Description'; // Добавь эту иконку
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -125,6 +126,7 @@ const Header = () => {
         { label: 'Специальности', path: '/specialties' },
         { label: 'Колледжи', path: '/colleges' },
         { label: 'Рядом со мной', path: '/nearby' },
+        { label: 'Анализ сочинения', path: '/ai/essay', icon: <DescriptionIcon /> }, // 👈 ДОБАВЛЕНО В НАВИГАЦИЮ
     ];
 
     return (
@@ -335,6 +337,18 @@ const Header = () => {
                                     
                                     <Divider />
                                     
+                                    {/* 👈 ДОБАВЛЕНО В ВЫПАДАЮЩЕЕ МЕНЮ ПОЛЬЗОВАТЕЛЯ */}
+                                    <MenuItem 
+                                        component={RouterLink} 
+                                        to="/ai/essay"
+                                        onClick={handleMenuClose}
+                                    >
+                                        <ListItemIcon>
+                                            <DescriptionIcon sx={{ color: '#f59e0b' }} />
+                                        </ListItemIcon>
+                                        <ListItemText>Анализ сочинения</ListItemText>
+                                    </MenuItem>
+                                    
                                     <MenuItem 
                                         component={RouterLink} 
                                         to="/test/comprehensive"
@@ -516,6 +530,19 @@ const Header = () => {
                             selected={location.pathname === '/specialties'}
                         >
                             <ListItemText>Специальности</ListItemText>
+                        </MenuItem>
+                        
+                        {/* 👈 ДОБАВЛЕНО В МОБИЛЬНОЕ МЕНЮ */}
+                        <MenuItem 
+                            component={RouterLink} 
+                            to="/ai/essay"
+                            onClick={handleMobileMenuClose}
+                            selected={location.pathname === '/ai/essay'}
+                        >
+                            <ListItemIcon>
+                                <DescriptionIcon sx={{ color: '#f59e0b' }} />
+                            </ListItemIcon>
+                            <ListItemText>Анализ сочинения</ListItemText>
                         </MenuItem>
                         
                         <MenuItem 

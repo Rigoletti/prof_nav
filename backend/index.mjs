@@ -11,6 +11,7 @@ import collegeRoutes from './routes/collegeRoutes.mjs';
 import adminRoutes from './routes/adminRoutes.mjs';
 import locationRoutes from './routes/locationRoutes.mjs'; // ДОЛЖНО БЫТЬ!
 import { errorHandler } from './middleware/errorHandler.mjs';
+import aiRoutes from './routes/aiRoutes.mjs';
 
 dotenv.config();
 
@@ -39,7 +40,8 @@ app.use('/api/tests', testRoutes);
 app.use('/api/specialties', specialtyRoutes); 
 app.use('/api/colleges', collegeRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/location', locationRoutes); // ДОЛЖНО БЫТЬ!
+app.use('/api/location', locationRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.use(errorHandler);
 

@@ -37,6 +37,7 @@ import FavoritesPage from './pages/specialties/FavoritesPage';
 import CollegesPage from './pages/colleges/CollegesPage';
 import CollegeDetailPage from './pages/colleges/CollegeDetailPage';
 import NearbyCollegesPage from './pages/colleges/NearbyCollegesPage';
+import EssayAnalyzer from './components/ai/EssayAnalyzer';
 
 const theme = createTheme({
     palette: {
@@ -157,6 +158,11 @@ const App = () => {
                                         <GolomshtokResults />
                                     </ProtectedRoute>
                                 } />
+                                <Route path="/ai/essay" element={
+  <ProtectedRoute>
+    <EssayAnalyzer />
+  </ProtectedRoute>
+} />
                                 <Route path="/test/holland" element={
                                     <ProtectedRoute>
                                         <HollandTest />
