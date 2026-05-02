@@ -1,5 +1,4 @@
-// frontend/components/test/ComprehensiveTest.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -58,35 +57,73 @@ const ComprehensiveTest = () => {
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [showInfoDialog, setShowInfoDialog] = useState(false);
+    
+    const isMounted = useRef(true);
+    const hasStarted = useRef(false);
 
-    useEffect(() => {
-        startTest();
-    }, []);
-
-    const startTest = async () => {
+    const startTest = useCallback(async () => {
+        if (hasStarted.current) return;
+        hasStarted.current = true;
+        
         try {
             setLoading(true);
             const response = await api.get('/tests/comprehensive/start');
+            
+            if (!isMounted.current) return;
             
             if (response.data.success) {
                 setTestSession(response.data.testSession);
                 setCurrentQuestion(response.data.question);
                 setCurrentQuestionNumber(response.data.currentQuestionNumber);
                 setCanGoBack(response.data.canGoBack || false);
-                setProgress(0);
-                setAnswersHistory([]);
+                setProgress(response.data.progress || 0);
+                
+                if (response.data.testSession?.answers?.length > 0) {
+                    const history = response.data.testSession.answers.map((answer, idx) => ({
+                        questionId: answer.questionId,
+                        questionText: `Вопрос ${idx + 1}`,
+                        answer: answer.answer,
+                        questionNumber: idx + 1
+                    }));
+                    setAnswersHistory(history);
+                }
             } else {
                 setError(response.data.message || 'Ошибка при загрузке теста');
                 setShowError(true);
             }
-            setLoading(false);
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
-            setError(errorMessage);
-            setShowError(true);
-            setLoading(false);
+            console.error('Error starting test:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
+                setError(errorMessage);
+                setShowError(true);
+            }
+        } finally {
+            if (isMounted.current) {
+                setLoading(false);
+            }
         }
-    };
+    }, [api]);
+
+    useEffect(() => {
+        isMounted.current = true;
+        startTest();
+        
+        const handleBeforeUnload = (e) => {
+            if (testSession && testSession.answers?.length > 0 && !testSession.completed) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        };
+        
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        
+        return () => {
+            isMounted.current = false;
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [startTest]);
 
     const handleAnswer = async (action = 'next') => {
         if (!testSession || !currentQuestion) return;
@@ -107,6 +144,8 @@ const ComprehensiveTest = () => {
                 action: action
             });
 
+            if (!isMounted.current) return;
+
             if (response.data.success) {
                 if (response.data.completed) {
                     navigate('/test/comprehensive/results', { 
@@ -114,7 +153,8 @@ const ComprehensiveTest = () => {
                             testResult: response.data.testResult,
                             finalScores: response.data.finalScores,
                             klimovScores: response.data.klimovScores,
-                            primaryTypes: response.data.primaryTypes
+                            primaryTypes: response.data.primaryTypes,
+                            recommendedSpecialties: response.data.recommendedSpecialties
                         }
                     });
                     return;
@@ -127,15 +167,17 @@ const ComprehensiveTest = () => {
                 setCanGoBack(response.data.canGoBack);
                 
                 if (action === 'next' && currentAnswer) {
-                    const newHistory = [...answersHistory];
-                    newHistory.push({
-                        questionId: currentQuestion.id,
-                        questionText: currentQuestion.text,
-                        answer: currentAnswer,
-                        questionNumber: currentQuestionNumber
+                    setAnswersHistory(prev => {
+                        const newHistory = [...prev];
+                        newHistory.push({
+                            questionId: currentQuestion.id,
+                            questionText: currentQuestion.text,
+                            answer: currentAnswer,
+                            questionNumber: currentQuestionNumber
+                        });
+                        if (newHistory.length > 20) newHistory.shift();
+                        return newHistory;
                     });
-                    if (newHistory.length > 20) newHistory.shift();
-                    setAnswersHistory(newHistory);
                 }
                 
                 setCurrentAnswer('');
@@ -144,11 +186,16 @@ const ComprehensiveTest = () => {
                 setShowError(true);
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
-            setError(errorMessage);
-            setShowError(true);
+            console.error('Error submitting answer:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
+                setError(errorMessage);
+                setShowError(true);
+            }
         } finally {
-            setSubmitting(false);
+            if (isMounted.current) {
+                setSubmitting(false);
+            }
         }
     };
 
@@ -163,6 +210,7 @@ const ComprehensiveTest = () => {
         if (confirmAction === 'prev') {
             handleAnswer('prev');
         } else if (confirmAction === 'restart') {
+            hasStarted.current = false;
             startTest();
         }
         setShowConfirmDialog(false);
@@ -191,16 +239,6 @@ const ComprehensiveTest = () => {
             default: return '';
         }
     };
-
-    const getAnsweredQuestion = (questionId) => {
-        return testSession?.answers.find(a => a.questionId === questionId);
-    };
-
-    const answerOptions = [
-        { value: '+', label: 'Нравится', icon: <ThumbUpIcon />, color: '#10b981' },
-        { value: '+-', label: 'Скорее нравится, чем нет', icon: <SentimentNeutralIcon />, color: '#f59e0b' },
-        { value: '-', label: 'Не нравится', icon: <ThumbDownIcon />, color: '#ef4444' }
-    ];
 
     if (loading) {
         return (
@@ -233,7 +271,10 @@ const ComprehensiveTest = () => {
                 <Typography variant="h5" color="text.secondary">
                     Не удалось загрузить тест
                 </Typography>
-                <Button onClick={startTest} variant="contained">
+                <Button onClick={() => {
+                    hasStarted.current = false;
+                    startTest();
+                }} variant="contained">
                     Попробовать снова
                 </Button>
             </Box>
@@ -241,8 +282,14 @@ const ComprehensiveTest = () => {
     }
 
     const answeredCount = testSession.answers.length;
-    const currentAnswerObj = getAnsweredQuestion(currentQuestion.id);
+    const currentAnswerObj = testSession.answers.find(a => a.questionId === currentQuestion.id);
     const initialAnswer = currentAnswerObj ? currentAnswerObj.answer : '';
+
+    const answerOptions = [
+        { value: '+', label: 'Нравится', icon: <ThumbUpIcon />, color: '#10b981' },
+        { value: '+-', label: 'Скорее нравится, чем нет', icon: <SentimentNeutralIcon />, color: '#f59e0b' },
+        { value: '-', label: 'Не нравится', icon: <ThumbDownIcon />, color: '#ef4444' }
+    ];
 
     return (
         <Box sx={{ 
@@ -251,6 +298,17 @@ const ComprehensiveTest = () => {
             py: 4,
         }}>
             <Container maxWidth="md">
+                <Snackbar 
+                    open={showError} 
+                    autoHideDuration={6000} 
+                    onClose={() => setShowError(false)}
+                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                >
+                    <Alert severity="error" onClose={() => setShowError(false)}>
+                        {error}
+                    </Alert>
+                </Snackbar>
+
                 <Box sx={{ mb: 4 }}>
                     <Button
                         onClick={() => navigate('/')}
@@ -266,7 +324,7 @@ const ComprehensiveTest = () => {
                         На главную
                     </Button>
                     
-                    <Paper sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+                    <Paper sx={{ p: 2, borderRadius: 2, mb: 2, bgcolor: 'rgba(255,255,255,0.9)' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <AutoAwesomeIcon sx={{ color: theme.palette.primary.main }} />
@@ -337,17 +395,6 @@ const ComprehensiveTest = () => {
                         </Typography>
                     </Box>
                 </Box>
-
-                <Snackbar 
-                    open={showError} 
-                    autoHideDuration={6000} 
-                    onClose={() => setShowError(false)}
-                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-                >
-                    <Alert severity="error" onClose={() => setShowError(false)}>
-                        {error}
-                    </Alert>
-                </Snackbar>
 
                 <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)' }}>
                     <CardContent sx={{ p: 4 }}>
@@ -490,9 +537,7 @@ const ComprehensiveTest = () => {
                     maxWidth="md"
                     fullWidth
                 >
-                    <DialogTitle>
-                        История ответов
-                    </DialogTitle>
+                    <DialogTitle>История ответов</DialogTitle>
                     <DialogContent>
                         <Box sx={{ mt: 2 }}>
                             {answersHistory.length === 0 ? (

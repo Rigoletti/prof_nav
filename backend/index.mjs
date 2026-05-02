@@ -12,7 +12,7 @@ import adminRoutes from './routes/adminRoutes.mjs';
 import locationRoutes from './routes/locationRoutes.mjs'; // ДОЛЖНО БЫТЬ!
 import { errorHandler } from './middleware/errorHandler.mjs';
 import aiRoutes from './routes/aiRoutes.mjs';
-
+import { cleanupOldSessions } from './controllers/comprehensiveTestController.mjs';
 dotenv.config();
 
 const app = express();
@@ -44,6 +44,21 @@ app.use('/api/location', locationRoutes);
 app.use('/api/ai', aiRoutes);
 
 app.use(errorHandler);
+
+setInterval(() => {
+    cleanupOldSessions();
+}, 24 * 60 * 60 * 1000); // Каждые 24 часа
+
+// Также можно добавить эндпоинт для ручной очистки
+app.post('/api/tests/cleanup-sessions', async (req, res) => {
+    try {
+        await cleanupOldSessions();
+        res.json({ success: true, message: 'Sessions cleaned up' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// frontend/components/test/KlimovTest.jsx
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -20,7 +21,8 @@ import {
     DialogContent,
     DialogActions,
     Tooltip,
-    Chip
+    Chip,
+    Paper
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -32,7 +34,6 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import PsychologyIcon from '@mui/icons-material/Psychology';
 import { useAuth } from '../../context/AuthContext';
 
 const TOTAL_QUESTIONS = 40;
@@ -56,35 +57,76 @@ const KlimovTest = () => {
     const [showHistoryDialog, setShowHistoryDialog] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
+    
+    const isMounted = useRef(true);
+    const hasStarted = useRef(false);
 
-    useEffect(() => {
-        startTest();
-    }, []);
-
-    const startTest = async () => {
+    const startTest = useCallback(async () => {
+        if (hasStarted.current) return;
+        hasStarted.current = true;
+        
         try {
             setLoading(true);
             const response = await api.get('/tests/klimov/start');
+            
+            if (!isMounted.current) return;
             
             if (response.data.success) {
                 setTestSession(response.data.testSession);
                 setCurrentQuestion(response.data.question);
                 setCurrentQuestionNumber(response.data.currentQuestionNumber);
                 setCanGoBack(response.data.canGoBack || false);
-                setProgress(0);
-                setAnswersHistory([]);
+                setProgress(response.data.progress || 0);
+                
+                // Восстанавливаем историю ответов из сессии
+                if (response.data.testSession?.answers?.length > 0) {
+                    const history = response.data.testSession.answers.map((answer, idx) => ({
+                        questionId: answer.questionId,
+                        questionText: `Вопрос ${idx + 1}`,
+                        answer: answer.answer,
+                        questionNumber: idx + 1
+                    }));
+                    setAnswersHistory(history);
+                } else {
+                    setAnswersHistory([]);
+                }
             } else {
                 setError(response.data.message || 'Ошибка при загрузке теста');
                 setShowError(true);
             }
-            setLoading(false);
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
-            setError(errorMessage);
-            setShowError(true);
-            setLoading(false);
+            console.error('Error starting test:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
+                setError(errorMessage);
+                setShowError(true);
+            }
+        } finally {
+            if (isMounted.current) {
+                setLoading(false);
+            }
         }
-    };
+    }, [api]);
+
+    useEffect(() => {
+        isMounted.current = true;
+        startTest();
+        
+        const handleBeforeUnload = (e) => {
+            if (testSession && testSession.answers?.length > 0 && !testSession.completed) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        };
+        
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        
+        return () => {
+            isMounted.current = false;
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [startTest]);
 
     const handleAnswer = async (action = 'next') => {
         if (!testSession || !currentQuestion) return;
@@ -105,6 +147,8 @@ const KlimovTest = () => {
                 action: action
             });
 
+            if (!isMounted.current) return;
+
             if (response.data.success) {
                 if (response.data.completed) {
                     navigate('/test/klimov/results', { 
@@ -123,15 +167,17 @@ const KlimovTest = () => {
                 setCanGoBack(response.data.canGoBack);
                 
                 if (action === 'next' && currentAnswer) {
-                    const newHistory = [...answersHistory];
-                    newHistory.push({
-                        questionId: currentQuestion.id,
-                        questionText: currentQuestion.text,
-                        answer: currentAnswer,
-                        questionNumber: currentQuestionNumber
+                    setAnswersHistory(prev => {
+                        const newHistory = [...prev];
+                        newHistory.push({
+                            questionId: currentQuestion.id,
+                            questionText: currentQuestion.text,
+                            answer: currentAnswer,
+                            questionNumber: currentQuestionNumber
+                        });
+                        if (newHistory.length > 20) newHistory.shift();
+                        return newHistory;
                     });
-                    if (newHistory.length > 20) newHistory.shift();
-                    setAnswersHistory(newHistory);
                 }
                 
                 setCurrentAnswer('');
@@ -140,11 +186,16 @@ const KlimovTest = () => {
                 setShowError(true);
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
-            setError(errorMessage);
-            setShowError(true);
+            console.error('Error submitting answer:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
+                setError(errorMessage);
+                setShowError(true);
+            }
         } finally {
-            setSubmitting(false);
+            if (isMounted.current) {
+                setSubmitting(false);
+            }
         }
     };
 
@@ -159,6 +210,7 @@ const KlimovTest = () => {
         if (confirmAction === 'prev') {
             handleAnswer('prev');
         } else if (confirmAction === 'restart') {
+            hasStarted.current = false;
             startTest();
         }
         setShowConfirmDialog(false);
@@ -182,7 +234,7 @@ const KlimovTest = () => {
             }}>
                 <CircularProgress />
                 <Typography variant="body2" color="text.secondary">
-                    Загрузка теста...
+                    Загрузка теста Климова...
                 </Typography>
             </Box>
         );
@@ -201,7 +253,10 @@ const KlimovTest = () => {
                 <Typography variant="h5" color="text.secondary">
                     Не удалось загрузить тест
                 </Typography>
-                <Button onClick={startTest} variant="contained">
+                <Button onClick={() => {
+                    hasStarted.current = false;
+                    startTest();
+                }} variant="contained">
                     Попробовать снова
                 </Button>
             </Box>
@@ -219,6 +274,17 @@ const KlimovTest = () => {
             py: 4,
         }}>
             <Container maxWidth="md">
+                <Snackbar 
+                    open={showError} 
+                    autoHideDuration={6000} 
+                    onClose={() => setShowError(false)}
+                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                >
+                    <Alert severity="error" onClose={() => setShowError(false)}>
+                        {error}
+                    </Alert>
+                </Snackbar>
+
                 <Box sx={{ mb: 4 }}>
                     <Button
                         onClick={() => navigate('/')}
@@ -233,6 +299,16 @@ const KlimovTest = () => {
                     >
                         На главную
                     </Button>
+                    
+                    <Paper sx={{ p: 2, borderRadius: 2, mb: 2, bgcolor: 'rgba(255,255,255,0.9)' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LightbulbIcon sx={{ color: theme.palette.primary.main }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                Тест Климова (Адаптивный)
+                            </Typography>
+                        </Box>
+                      
+                    </Paper>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                         <Box sx={{ flex: 1, mr: 2 }}>
@@ -287,17 +363,6 @@ const KlimovTest = () => {
                         </Typography>
                     </Box>
                 </Box>
-
-                <Snackbar 
-                    open={showError} 
-                    autoHideDuration={6000} 
-                    onClose={() => setShowError(false)}
-                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-                >
-                    <Alert severity="error" onClose={() => setShowError(false)}>
-                        {error}
-                    </Alert>
-                </Snackbar>
 
                 <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 20px 40px rgba(0, 0, 0, 0.08)' }}>
                     <CardContent sx={{ p: 4 }}>
@@ -392,10 +457,6 @@ const KlimovTest = () => {
                                     fontWeight: 600,
                                     borderColor: canGoBack ? 'primary.main' : 'grey.300',
                                     color: canGoBack ? 'primary.main' : 'text.disabled',
-                                    '&:hover': {
-                                        backgroundColor: canGoBack ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                                        borderColor: canGoBack ? 'primary.main' : 'grey.300',
-                                    }
                                 }}
                             >
                                 Назад
@@ -413,13 +474,6 @@ const KlimovTest = () => {
                                     fontSize: '1rem',
                                     fontWeight: 600,
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                    '&:hover': {
-                                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                                        transform: 'translateY(-2px)',
-                                    },
-                                    '&:disabled': {
-                                        background: 'grey.300',
-                                    }
                                 }}
                             >
                                 {submitting ? 'Отправка...' : currentQuestionNumber === TOTAL_QUESTIONS ? 'Завершить' : 'Далее'}
@@ -444,16 +498,26 @@ const KlimovTest = () => {
                 >
                     <DialogTitle>
                         История ответов
+                        {testSession.answers.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                Всего отвечено: {testSession.answers.length} из {TOTAL_QUESTIONS}
+                            </Typography>
+                        )}
                     </DialogTitle>
                     <DialogContent>
                         <Box sx={{ mt: 2 }}>
-                            {answersHistory.length === 0 ? (
+                            {answersHistory.length === 0 && testSession.answers.length === 0 ? (
                                 <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                                     История ответов пуста
                                 </Typography>
                             ) : (
                                 <Stack spacing={2}>
-                                    {answersHistory.slice().reverse().map((item, index) => (
+                                    {(answersHistory.length > 0 ? answersHistory : testSession.answers.map((a, idx) => ({
+                                        questionId: a.questionId,
+                                        questionText: `Вопрос ${idx + 1}`,
+                                        answer: a.answer,
+                                        questionNumber: idx + 1
+                                    }))).slice().reverse().map((item, index) => (
                                         <Card key={index} variant="outlined">
                                             <CardContent sx={{ p: 2 }}>
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -469,7 +533,7 @@ const KlimovTest = () => {
                                                     />
                                                 </Box>
                                                 <Typography variant="body2">
-                                                    {item.questionText}
+                                                    {item.questionText !== `Вопрос ${item.questionNumber}` ? item.questionText : `Вопрос ${item.questionNumber}`}
                                                 </Typography>
                                             </CardContent>
                                         </Card>

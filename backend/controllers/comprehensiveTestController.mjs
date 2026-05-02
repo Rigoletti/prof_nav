@@ -1,5 +1,7 @@
+// backend/controllers/comprehensiveTestController.mjs
 import User from '../models/User.mjs';
 import Specialty from '../models/Specialty.mjs';
+import TestSession from '../models/TestSession.mjs';
 
 // Оптимизированный набор вопросов (всего 40 вопросов)
 const COMPREHENSIVE_QUESTIONS = [
@@ -58,14 +60,11 @@ const TOTAL_QUESTIONS = 40;
 
 // Названия типов для каждой методики
 const TYPE_NAMES = {
-    // Климов
     manHuman: { name: 'Человек-Человек', description: 'Работа с людьми, общение, обучение', color: '#ec4899' },
     manTech: { name: 'Человек-Техника', description: 'Работа с техникой, механизмами', color: '#3b82f6' },
     manArt: { name: 'Человек-Искусство', description: 'Творческая работа, искусство', color: '#8b5cf6' },
     manNature: { name: 'Человек-Природа', description: 'Работа с природой, растениями, животными', color: '#10b981' },
     manSign: { name: 'Человек-Знаковая система', description: 'Работа с цифрами, схемами, документами', color: '#f59e0b' },
-    
-    // Голомшток
     physics: { name: 'Физика и математика', description: 'Научно-техническое направление', color: '#3b82f6' },
     chemistry: { name: 'Химия и биология', description: 'Естественно-научное направление', color: '#10b981' },
     electronics: { name: 'Радиотехника и электроника', description: 'IT и электроника', color: '#8b5cf6' },
@@ -76,31 +75,23 @@ const TYPE_NAMES = {
     pedagogy: { name: 'Педагогика и медицина', description: 'Образование и здравоохранение', color: '#6366f1' },
     entrepreneurship: { name: 'Предпринимательство', description: 'Бизнес и управление', color: '#f97316' },
     sports: { name: 'Спорт и военное дело', description: 'Физическая культура и безопасность', color: '#6b7280' },
-    
-    // Голланд
     realistic: { name: 'Реалистичный', description: 'Практическая работа с техникой', color: '#3b82f6' },
     investigative: { name: 'Исследовательский', description: 'Научные исследования и анализ', color: '#10b981' },
     artistic: { name: 'Артистический', description: 'Творчество и самовыражение', color: '#ec4899' },
     social: { name: 'Социальный', description: 'Работа с людьми и помощь', color: '#f59e0b' },
     enterprising: { name: 'Предприимчивый', description: 'Бизнес и руководство', color: '#8b5cf6' },
     conventional: { name: 'Конвенциональный', description: 'Работа с документами и учет', color: '#6b7280' },
-    
-    // Йовайша
     aesthetic: { name: 'Эстетическая сфера', description: 'Дизайн, стиль, красота', color: '#8b5cf6' },
     mental: { name: 'Умственная сфера', description: 'Интеллектуальный труд', color: '#f59e0b' },
     physical: { name: 'Физическая сфера', description: 'Физический труд, спорт', color: '#ef4444' },
     economic: { name: 'Экономическая сфера', description: 'Финансы, бизнес', color: '#6366f1' },
     workWithPeople: { name: 'Работа с людьми', description: 'Общение и помощь', color: '#10b981' },
-    
-    // Йовайша Л.А.
     plannedWork: { name: 'Плановая деятельность', description: 'Организация и контроль', color: '#6366f1' },
     extremeWork: { name: 'Экстремальная деятельность', description: 'Риск и активность', color: '#ef4444' },
     technicalWork: { name: 'Техническая работа', description: 'Конструирование и ремонт', color: '#3b82f6' }
 };
 
-// Связь типов с типами Климова
 const TYPE_TO_KLIMOV = {
-    // Голомшток -> Климов
     physics: ['manSign', 'manTech'],
     chemistry: ['manNature', 'manSign'],
     electronics: ['manTech', 'manSign'],
@@ -111,32 +102,87 @@ const TYPE_TO_KLIMOV = {
     pedagogy: ['manHuman'],
     entrepreneurship: ['manHuman', 'manSign'],
     sports: ['manHuman', 'manTech'],
-    
-    // Голланд -> Климов
     realistic: ['manTech'],
     investigative: ['manSign', 'manNature'],
     artistic: ['manArt'],
     social: ['manHuman'],
     enterprising: ['manHuman', 'manSign'],
     conventional: ['manSign'],
-    
-    // Йовайша -> Климов
-    art: ['manArt'],
-    technical: ['manTech'],
-    workWithPeople: ['manHuman'],
-    mental: ['manSign'],
     aesthetic: ['manArt'],
+    mental: ['manSign'],
     physical: ['manNature', 'manTech'],
     economic: ['manSign', 'manHuman'],
-    
-    // Йовайша Л.А. -> Климов
     workWithPeople: ['manHuman'],
-    mentalWork: ['manSign'],
-    technicalWork: ['manTech'],
-    aestheticWork: ['manArt'],
+    plannedWork: ['manSign'],
     extremeWork: ['manNature', 'manTech'],
-    plannedWork: ['manSign']
+    technicalWork: ['manTech']
 };
+
+// Сохранение сессии в БД
+async function saveSessionToDB(userId, testSession, testType, completed = false) {
+    try {
+        const existingSession = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        const sessionData = {
+            userId,
+            testType,
+            sessionData: testSession,
+            currentQuestionId: testSession.currentQuestion?.id,
+            answersCount: testSession.answers?.length || 0,
+            progress: Math.round(((testSession.answers?.length || 0) / TOTAL_QUESTIONS) * 100),
+            completed,
+            lastActivity: new Date()
+        };
+        
+        if (completed) {
+            sessionData.completedAt = new Date();
+        }
+        
+        if (existingSession) {
+            existingSession.sessionData = testSession;
+            existingSession.currentQuestionId = testSession.currentQuestion?.id;
+            existingSession.answersCount = testSession.answers?.length || 0;
+            existingSession.progress = sessionData.progress;
+            existingSession.completed = completed;
+            existingSession.lastActivity = new Date();
+            if (completed) existingSession.completedAt = new Date();
+            await existingSession.save();
+            return existingSession;
+        } else {
+            const newSession = new TestSession(sessionData);
+            await newSession.save();
+            return newSession;
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения сессии:', error);
+        return null;
+    }
+}
+
+// Получение сохраненной сессии
+async function getSavedSession(userId, testType) {
+    try {
+        const session = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        if (session && session.sessionData) {
+            session.lastActivity = new Date();
+            await session.save();
+            return session.sessionData;
+        }
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения сессии:', error);
+        return null;
+    }
+}
 
 export const getComprehensiveTest = async (req, res) => {
     try {
@@ -149,13 +195,29 @@ export const getComprehensiveTest = async (req, res) => {
             });
         }
 
-        // Перемешиваем вопросы для случайного порядка
-        const shuffledQuestions = [...COMPREHENSIVE_QUESTIONS].sort(() => Math.random() - 0.5);
+        const userId = req.user._id;
         
-        // Создаем копию оставшихся вопросов без первого
+        let savedSession = await getSavedSession(userId, 'comprehensive');
+        
+        if (savedSession) {
+            console.log('Found saved session, restoring...');
+            const currentQuestionNumber = savedSession.answers.length + 1;
+            const progress = Math.round((savedSession.answers.length / TOTAL_QUESTIONS) * 100);
+            
+            return res.json({
+                success: true,
+                testSession: savedSession,
+                question: savedSession.currentQuestion,
+                totalQuestions: TOTAL_QUESTIONS,
+                currentQuestionNumber: currentQuestionNumber,
+                progress: progress,
+                canGoBack: savedSession.previousQuestions && savedSession.previousQuestions.length > 0
+            });
+        }
+
+        const shuffledQuestions = [...COMPREHENSIVE_QUESTIONS].sort(() => Math.random() - 0.5);
         const remainingQuestions = shuffledQuestions.slice(1).map(q => ({ ...q }));
         
-        // Инициализируем все счета
         const scores = {};
         COMPREHENSIVE_QUESTIONS.forEach(q => {
             scores[`${q.method}_${q.type}`] = 0;
@@ -170,7 +232,7 @@ export const getComprehensiveTest = async (req, res) => {
             currentQuestion: { ...shuffledQuestions[0] }
         };
 
-        console.log('Test session created with first question:', testSession.currentQuestion.id);
+        await saveSessionToDB(userId, testSession, 'comprehensive');
 
         res.json({
             success: true,
@@ -204,7 +266,6 @@ export const submitComprehensiveAnswer = async (req, res) => {
         const userId = req.user._id;
         const { questionId, answer, testSession, action = 'next' } = req.body;
 
-        // Валидация
         if (!questionId || answer === undefined || !testSession) {
             return res.status(400).json({
                 success: false,
@@ -227,7 +288,6 @@ export const submitComprehensiveAnswer = async (req, res) => {
             });
         }
 
-        // Создаем копию сессии
         const updatedSession = {
             sessionId: testSession.sessionId,
             answers: testSession.answers ? [...testSession.answers] : [],
@@ -245,9 +305,7 @@ export const submitComprehensiveAnswer = async (req, res) => {
             if (existingAnswerIndex !== -1) {
                 const oldAnswer = updatedSession.answers[existingAnswerIndex];
                 const oldValue = oldAnswer.answer === '+' ? 2 : (oldAnswer.answer === '+-' ? 1 : 0);
-                
                 updatedSession.scores[scoreKey] = (updatedSession.scores[scoreKey] || 0) - oldValue + answerValue;
-                
                 updatedSession.answers[existingAnswerIndex] = {
                     questionId: parseInt(questionId),
                     answer: answer,
@@ -259,28 +317,25 @@ export const submitComprehensiveAnswer = async (req, res) => {
                     answer: answer,
                     timestamp: new Date()
                 });
-
                 updatedSession.scores[scoreKey] = (updatedSession.scores[scoreKey] || 0) + answerValue;
             }
 
-            // Проверяем завершение
             if (updatedSession.answers.length >= TOTAL_QUESTIONS) {
+                await TestSession.findOneAndDelete({ userId, testType: 'comprehensive', completed: false });
                 return await completeComprehensiveTest(userId, updatedSession, res);
             }
 
-            // Следующий вопрос
             if (updatedSession.remainingQuestions && updatedSession.remainingQuestions.length > 0) {
                 const nextQuestion = { ...updatedSession.remainingQuestions[0] };
-                
                 updatedSession.currentQuestion = nextQuestion;
                 updatedSession.remainingQuestions = updatedSession.remainingQuestions.slice(1);
-                
                 updatedSession.previousQuestions.push({
                     questionId: parseInt(questionId),
                     answer: answer,
                     question: { ...question }
                 });
             } else {
+                await TestSession.findOneAndDelete({ userId, testType: 'comprehensive', completed: false });
                 return await completeComprehensiveTest(userId, updatedSession, res);
             }
 
@@ -293,13 +348,12 @@ export const submitComprehensiveAnswer = async (req, res) => {
             }
 
             const lastQuestionData = testSession.previousQuestions[testSession.previousQuestions.length - 1];
-            
             const currentAnswerIndex = updatedSession.answers.findIndex(a => a.questionId === parseInt(questionId));
+            
             if (currentAnswerIndex !== -1) {
                 const currentAnswer = updatedSession.answers[currentAnswerIndex];
                 const currentValue = currentAnswer.answer === '+' ? 2 : (currentAnswer.answer === '+-' ? 1 : 0);
                 const scoreKey = `${question.method}_${question.type}`;
-                
                 updatedSession.scores[scoreKey] = (updatedSession.scores[scoreKey] || 0) - currentValue;
                 updatedSession.answers.splice(currentAnswerIndex, 1);
             }
@@ -314,6 +368,8 @@ export const submitComprehensiveAnswer = async (req, res) => {
             updatedSession.currentQuestion = { ...lastQuestionData.question };
             updatedSession.previousQuestions = testSession.previousQuestions.slice(0, -1);
         }
+
+        await saveSessionToDB(userId, updatedSession, 'comprehensive');
 
         const currentQuestionNumber = updatedSession.answers.length + 1;
         const progress = Math.round((updatedSession.answers.length / TOTAL_QUESTIONS) * 100);
@@ -341,7 +397,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
     try {
         console.log('Completing comprehensive test for user:', userId);
 
-        // Группируем ответы по методикам
         const results = {
             klimov: {},
             golomshtok: {},
@@ -352,14 +407,12 @@ async function completeComprehensiveTest(userId, testSession, res) {
 
         const typeCounts = {};
 
-        // Подсчитываем баллы
         testSession.answers.forEach(answer => {
             const question = COMPREHENSIVE_QUESTIONS.find(q => q.id === answer.questionId);
             if (question) {
                 const method = question.method;
                 const type = question.type;
                 const key = `${method}_${type}`;
-                const scoreKey = `${method}_${type}`;
                 const value = answer.answer === '+' ? 2 : (answer.answer === '+-' ? 1 : 0);
                 
                 if (!results[method][type]) {
@@ -372,7 +425,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             }
         });
 
-        // Вычисляем проценты
         const finalScores = {};
         Object.keys(results).forEach(method => {
             finalScores[method] = {};
@@ -385,7 +437,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             });
         });
 
-        // Определяем типы Климова
         const klimovScores = {
             manNature: 0,
             manTech: 0,
@@ -394,7 +445,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             manArt: 0
         };
 
-        // Собираем все результаты для конвертации в Климов
         const allTypeScores = [];
         Object.keys(finalScores).forEach(method => {
             Object.entries(finalScores[method]).forEach(([type, score]) => {
@@ -402,7 +452,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             });
         });
 
-        // Конвертируем в типы Климова
         allTypeScores.forEach(({ type, score }) => {
             const weight = score / 100;
             const klimovTypes = TYPE_TO_KLIMOV[type] || [];
@@ -414,12 +463,10 @@ async function completeComprehensiveTest(userId, testSession, res) {
             });
         });
 
-        // Нормализуем
         Object.keys(klimovScores).forEach(type => {
             klimovScores[type] = Math.min(100, Math.round(klimovScores[type]));
         });
 
-        // Определяем первичные типы
         const primaryTypes = {
             klimov: Object.entries(finalScores.klimov || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
             golomshtok: Object.entries(finalScores.golomshtok || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
@@ -428,7 +475,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             yovaysha_la: Object.entries(finalScores.yovaysha_la || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
         };
 
-        // Рекомендуем специальности
         const klimovTypesForSearch = Object.entries(klimovScores)
             .filter(([_, score]) => score >= 40)
             .map(([type]) => type);
@@ -496,7 +542,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
 
         specialtiesWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
 
-        // Создаем результат
         const testResult = {
             testType: 'comprehensive',
             date: new Date(),
@@ -518,8 +563,6 @@ async function completeComprehensiveTest(userId, testSession, res) {
             })),
             questionsCount: Number(testSession.answers.length)
         };
-
-        console.log('Saving comprehensive test result');
 
         const user = await User.findById(userId);
         if (!user) {
@@ -603,6 +646,8 @@ export const getComprehensiveResults = async (req, res) => {
 
 export const getPreviousComprehensiveQuestion = async (req, res) => {
     try {
+        console.log('Getting previous comprehensive question for user:', req.user?._id);
+        
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -622,7 +667,7 @@ export const getPreviousComprehensiveQuestion = async (req, res) => {
         const updatedSession = {
             sessionId: testSession.sessionId,
             answers: testSession.answers ? [...testSession.answers] : [],
-            scores: { ...testSession.scores } || {},
+            scores: { ...testSession.scores },
             remainingQuestions: testSession.remainingQuestions ? [...testSession.remainingQuestions] : [],
             previousQuestions: testSession.previousQuestions ? [...testSession.previousQuestions] : [],
             currentQuestion: testSession.currentQuestion ? { ...testSession.currentQuestion } : null
@@ -677,5 +722,21 @@ export const getPreviousComprehensiveQuestion = async (req, res) => {
             success: false,
             message: 'Ошибка при возврате к предыдущему вопросу: ' + error.message
         });
+    }
+};
+
+export const cleanupOldSessions = async () => {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const result = await TestSession.deleteMany({
+            lastActivity: { $lt: sevenDaysAgo },
+            completed: true
+        });
+        
+        console.log(`Cleaned up ${result.deletedCount} old sessions`);
+    } catch (error) {
+        console.error('Error cleaning up sessions:', error);
     }
 };

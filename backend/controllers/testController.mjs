@@ -1,5 +1,7 @@
+// backend/controllers/testController.mjs
 import User from '../models/User.mjs';
 import Specialty from '../models/Specialty.mjs';
+import TestSession from '../models/TestSession.mjs';
 
 const KLIMOV_QUESTIONS = [
     {
@@ -314,6 +316,74 @@ const KLIMOV_TYPE_NAMES = {
     manArt: 'Человек-Искусство'
 };
 
+// ========== ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ СЕССИЙ ==========
+
+async function saveSessionToDB(userId, testSession, testType, completed = false) {
+    try {
+        const existingSession = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        const sessionData = {
+            userId,
+            testType,
+            sessionData: testSession,
+            currentQuestionId: testSession.currentQuestion?.id,
+            answersCount: testSession.answers?.length || 0,
+            progress: Math.round(((testSession.answers?.length || 0) / TOTAL_QUESTIONS) * 100),
+            completed,
+            lastActivity: new Date()
+        };
+        
+        if (completed) {
+            sessionData.completedAt = new Date();
+        }
+        
+        if (existingSession) {
+            existingSession.sessionData = testSession;
+            existingSession.currentQuestionId = testSession.currentQuestion?.id;
+            existingSession.answersCount = testSession.answers?.length || 0;
+            existingSession.progress = sessionData.progress;
+            existingSession.completed = completed;
+            existingSession.lastActivity = new Date();
+            if (completed) existingSession.completedAt = new Date();
+            await existingSession.save();
+            return existingSession;
+        } else {
+            const newSession = new TestSession(sessionData);
+            await newSession.save();
+            return newSession;
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения сессии:', error);
+        return null;
+    }
+}
+
+async function getSavedSession(userId, testType) {
+    try {
+        const session = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        if (session && session.sessionData) {
+            session.lastActivity = new Date();
+            await session.save();
+            return session.sessionData;
+        }
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения сессии:', error);
+        return null;
+    }
+}
+
+// ========== ОСНОВНЫЕ ФУНКЦИИ ==========
+
 function selectNextQuestion(session) {
     if (session.answers.length >= TOTAL_QUESTIONS) {
         return null;
@@ -383,6 +453,36 @@ function selectNextQuestion(session) {
 
 export const getKlimovTest = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Необходима авторизация'
+            });
+        }
+
+        const userId = req.user._id;
+        
+        // Проверяем есть ли сохраненная сессия
+        let savedSession = await getSavedSession(userId, 'klimov');
+        
+        if (savedSession) {
+            console.log('Found saved Klimov session, restoring...');
+            const currentQuestionNumber = savedSession.answers.length + 1;
+            const progress = Math.round((savedSession.answers.length / TOTAL_QUESTIONS) * 100);
+            
+            return res.json({
+                success: true,
+                testSession: savedSession,
+                question: savedSession.currentQuestion,
+                totalQuestions: TOTAL_QUESTIONS,
+                currentQuestionNumber: currentQuestionNumber,
+                progress: progress,
+                canGoBack: savedSession.previousQuestions && savedSession.previousQuestions.length > 0,
+                previousQuestions: savedSession.previousQuestions || []
+            });
+        }
+
+        // Создаем новую сессию
         const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
         const testSession = {
@@ -396,7 +496,8 @@ export const getKlimovTest = async (req, res) => {
                 manSign: 0,
                 manArt: 0
             },
-            askedQuestions: []
+            askedQuestions: [],
+            previousQuestions: []
         };
 
         const firstQuestion = selectNextQuestion(testSession);
@@ -410,6 +511,10 @@ export const getKlimovTest = async (req, res) => {
 
         testSession.currentQuestion = firstQuestion;
         testSession.askedQuestions.push(firstQuestion.id);
+        testSession.previousQuestions = [];
+
+        // Сохраняем новую сессию
+        await saveSessionToDB(userId, testSession, 'klimov');
 
         res.json({
             success: true,
@@ -417,6 +522,7 @@ export const getKlimovTest = async (req, res) => {
             question: firstQuestion,
             totalQuestions: TOTAL_QUESTIONS,
             currentQuestionNumber: 1,
+            progress: 0,
             canGoBack: false,
             previousQuestions: []
         });
@@ -478,12 +584,15 @@ export const submitKlimovAnswer = async (req, res) => {
                 (updatedSession.scores[question.type] || 0) + answerValue;
 
             if (updatedSession.answers.length >= TOTAL_QUESTIONS) {
+                // Удаляем сессию перед завершением
+                await TestSession.findOneAndDelete({ userId, testType: 'klimov', completed: false });
                 return await completeTest(userId, updatedSession, res);
             }
 
             const nextQuestion = selectNextQuestion(updatedSession);
             
             if (!nextQuestion) {
+                await TestSession.findOneAndDelete({ userId, testType: 'klimov', completed: false });
                 return await completeTest(userId, updatedSession, res);
             }
 
@@ -534,6 +643,9 @@ export const submitKlimovAnswer = async (req, res) => {
 
             updatedSession.previousQuestions = testSession.previousQuestions;
         }
+
+        // Сохраняем обновленную сессию
+        await saveSessionToDB(userId, updatedSession, 'klimov');
 
         res.json({
             success: true,
@@ -590,7 +702,7 @@ async function completeTest(userId, testSession, res) {
         const recommendedSpecialties = await Specialty.find({
             klimovTypes: { $in: [primaryType] }
         })
-        .populate('colleges', 'name city region') // Загружаем информацию о колледжах
+        .populate('colleges', 'name city region')
         .limit(10)
         .lean();
         
@@ -608,7 +720,6 @@ async function completeTest(userId, testSession, res) {
                 });
             }
             
-            // Получаем название первого колледжа из загруженных данных
             let collegeName = '';
             let collegeId = null;
             let collegeCity = '';
@@ -618,13 +729,10 @@ async function completeTest(userId, testSession, res) {
                 collegeName = firstCollege.name || '';
                 collegeId = firstCollege._id;
                 collegeCity = firstCollege.city || '';
-            } 
-            // Если нет загруженных колледжей, используем collegeNames
-            else if (specialty.collegeNames && specialty.collegeNames.length > 0) {
+            } else if (specialty.collegeNames && specialty.collegeNames.length > 0) {
                 collegeName = specialty.collegeNames[0] || '';
             }
             
-            // Если все еще нет названия, используем название из поля name специальности
             if (!collegeName) {
                 collegeName = specialty.name || 'Колледж';
             }
@@ -685,11 +793,11 @@ async function completeTest(userId, testSession, res) {
             message: 'Тест завершен',
             testResult: {
                 ...testResult,
-                recommendedSpecialties: specialtiesWithMatch.slice(0, 5) // Отправляем только топ-5 для ответа
+                recommendedSpecialties: specialtiesWithMatch.slice(0, 5)
             },
             completed: true,
             finalScores,
-            recommendedSpecialties: specialtiesWithMatch.slice(0, 5) // Топ-5 специальностей
+            recommendedSpecialties: specialtiesWithMatch.slice(0, 5)
         });
 
     } catch (error) {

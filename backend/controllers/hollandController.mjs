@@ -1,5 +1,6 @@
 import User from '../models/User.mjs';
 import Specialty from '../models/Specialty.mjs';
+import TestSession from '../models/TestSession.mjs';
 
 // Вопросы методики Голланда (Холланда) - 42 вопроса
 const HOLLAND_QUESTIONS = [
@@ -109,6 +110,74 @@ const HOLLAND_TO_KLIMOV = {
     conventional: ['manSign']
 };
 
+// ========== ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ СЕССИЙ ==========
+
+async function saveSessionToDB(userId, testSession, testType, completed = false) {
+    try {
+        const existingSession = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        const sessionData = {
+            userId,
+            testType,
+            sessionData: testSession,
+            currentQuestionId: testSession.currentQuestion?.id,
+            answersCount: testSession.answers?.length || 0,
+            progress: Math.round(((testSession.answers?.length || 0) / TOTAL_QUESTIONS) * 100),
+            completed,
+            lastActivity: new Date()
+        };
+        
+        if (completed) {
+            sessionData.completedAt = new Date();
+        }
+        
+        if (existingSession) {
+            existingSession.sessionData = testSession;
+            existingSession.currentQuestionId = testSession.currentQuestion?.id;
+            existingSession.answersCount = testSession.answers?.length || 0;
+            existingSession.progress = sessionData.progress;
+            existingSession.completed = completed;
+            existingSession.lastActivity = new Date();
+            if (completed) existingSession.completedAt = new Date();
+            await existingSession.save();
+            return existingSession;
+        } else {
+            const newSession = new TestSession(sessionData);
+            await newSession.save();
+            return newSession;
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения сессии:', error);
+        return null;
+    }
+}
+
+async function getSavedSession(userId, testType) {
+    try {
+        const session = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        if (session && session.sessionData) {
+            session.lastActivity = new Date();
+            await session.save();
+            return session.sessionData;
+        }
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения сессии:', error);
+        return null;
+    }
+}
+
+// ========== ОСНОВНЫЕ ФУНКЦИИ ==========
+
 export const getHollandTest = async (req, res) => {
     try {
         console.log('Starting Holland test for user:', req.user?._id);
@@ -117,6 +186,27 @@ export const getHollandTest = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: 'Необходима авторизация'
+            });
+        }
+
+        const userId = req.user._id;
+        
+        // Проверяем есть ли сохраненная незавершенная сессия
+        let savedSession = await getSavedSession(userId, 'holland');
+        
+        if (savedSession) {
+            console.log('Found saved Holland session, restoring...');
+            const currentQuestionNumber = savedSession.answers.length + 1;
+            const progress = Math.round((savedSession.answers.length / TOTAL_QUESTIONS) * 100);
+            
+            return res.json({
+                success: true,
+                testSession: savedSession,
+                question: savedSession.currentQuestion,
+                totalQuestions: TOTAL_QUESTIONS,
+                currentQuestionNumber: currentQuestionNumber,
+                progress: progress,
+                canGoBack: savedSession.previousQuestions && savedSession.previousQuestions.length > 0
             });
         }
 
@@ -141,6 +231,9 @@ export const getHollandTest = async (req, res) => {
             previousQuestions: [],
             currentQuestion: { ...shuffledQuestions[0] }
         };
+
+        // Сохраняем в БД
+        await saveSessionToDB(userId, testSession, 'holland');
 
         console.log('Test session created with first question:', testSession.currentQuestion.id);
 
@@ -279,6 +372,7 @@ export const submitHollandAnswer = async (req, res) => {
             // Проверяем, завершен ли тест
             if (updatedSession.answers.length >= TOTAL_QUESTIONS) {
                 console.log('Test completed, calling completeHollandTest');
+                await TestSession.findOneAndDelete({ userId, testType: 'holland', completed: false });
                 return await completeHollandTest(userId, updatedSession, res);
             }
 
@@ -300,6 +394,7 @@ export const submitHollandAnswer = async (req, res) => {
             } else {
                 // Если нет оставшихся вопросов, завершаем тест
                 console.log('No remaining questions, completing test');
+                await TestSession.findOneAndDelete({ userId, testType: 'holland', completed: false });
                 return await completeHollandTest(userId, updatedSession, res);
             }
 
@@ -339,6 +434,9 @@ export const submitHollandAnswer = async (req, res) => {
             updatedSession.currentQuestion = { ...lastQuestionData.question };
             updatedSession.previousQuestions = testSession.previousQuestions.slice(0, -1);
         }
+
+        // Сохраняем обновленную сессию
+        await saveSessionToDB(userId, updatedSession, 'holland');
 
         const currentQuestionNumber = updatedSession.answers.length + 1;
         const progress = Math.round((updatedSession.answers.length / TOTAL_QUESTIONS) * 100);

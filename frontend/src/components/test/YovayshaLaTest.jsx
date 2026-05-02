@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -20,7 +20,8 @@ import {
     DialogContent,
     DialogActions,
     Tooltip,
-    Chip
+    Chip,
+    Paper
 } from '@mui/material';
 import PsychologyAltIcon from '@mui/icons-material/PsychologyAlt';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -54,35 +55,63 @@ const YovayshaLaTest = () => {
     const [showHistoryDialog, setShowHistoryDialog] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
+    
+    const isMounted = useRef(true);
+    const hasStarted = useRef(false);
 
-    useEffect(() => {
-        startTest();
-    }, []);
-
-    const startTest = async () => {
+    const startTest = useCallback(async () => {
+        if (hasStarted.current) return;
+        hasStarted.current = true;
+        
         try {
             setLoading(true);
             const response = await api.get('/tests/yovayshala/start');
+            
+            if (!isMounted.current) return;
             
             if (response.data.success) {
                 setTestSession(response.data.testSession);
                 setCurrentQuestion(response.data.question);
                 setCurrentQuestionNumber(response.data.currentQuestionNumber);
                 setCanGoBack(response.data.canGoBack || false);
-                setProgress(0);
-                setAnswersHistory([]);
+                setProgress(response.data.progress || 0);
             } else {
                 setError(response.data.message || 'Ошибка при загрузке теста');
                 setShowError(true);
             }
-            setLoading(false);
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
-            setError(errorMessage);
-            setShowError(true);
-            setLoading(false);
+            console.error('Error starting test:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка начала теста';
+                setError(errorMessage);
+                setShowError(true);
+            }
+        } finally {
+            if (isMounted.current) {
+                setLoading(false);
+            }
         }
-    };
+    }, [api]);
+
+    useEffect(() => {
+        isMounted.current = true;
+        startTest();
+        
+        const handleBeforeUnload = (e) => {
+            if (testSession && testSession.answers?.length > 0 && !testSession.completed) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        };
+        
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        
+        return () => {
+            isMounted.current = false;
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [startTest]);
 
     const handleAnswer = async (action = 'next') => {
         if (!testSession || !currentQuestion) return;
@@ -102,6 +131,8 @@ const YovayshaLaTest = () => {
                 testSession: testSession,
                 action: action
             });
+
+            if (!isMounted.current) return;
 
             if (response.data.success) {
                 if (response.data.completed) {
@@ -123,15 +154,17 @@ const YovayshaLaTest = () => {
                 setCanGoBack(response.data.canGoBack);
                 
                 if (action === 'next' && currentAnswer) {
-                    const newHistory = [...answersHistory];
-                    newHistory.push({
-                        questionId: currentQuestion.id,
-                        questionText: currentQuestion.text,
-                        answer: currentAnswer,
-                        questionNumber: currentQuestionNumber
+                    setAnswersHistory(prev => {
+                        const newHistory = [...prev];
+                        newHistory.push({
+                            questionId: currentQuestion.id,
+                            questionText: currentQuestion.text,
+                            answer: currentAnswer,
+                            questionNumber: currentQuestionNumber
+                        });
+                        if (newHistory.length > 20) newHistory.shift();
+                        return newHistory;
                     });
-                    if (newHistory.length > 20) newHistory.shift();
-                    setAnswersHistory(newHistory);
                 }
                 
                 setCurrentAnswer('');
@@ -140,11 +173,16 @@ const YovayshaLaTest = () => {
                 setShowError(true);
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
-            setError(errorMessage);
-            setShowError(true);
+            console.error('Error submitting answer:', error);
+            if (isMounted.current) {
+                const errorMessage = error.response?.data?.message || 'Ошибка отправки ответа';
+                setError(errorMessage);
+                setShowError(true);
+            }
         } finally {
-            setSubmitting(false);
+            if (isMounted.current) {
+                setSubmitting(false);
+            }
         }
     };
 
@@ -159,6 +197,7 @@ const YovayshaLaTest = () => {
         if (confirmAction === 'prev') {
             handleAnswer('prev');
         } else if (confirmAction === 'restart') {
+            hasStarted.current = false;
             startTest();
         }
         setShowConfirmDialog(false);
@@ -187,16 +226,6 @@ const YovayshaLaTest = () => {
             default: return '';
         }
     };
-
-    const getAnsweredQuestion = (questionId) => {
-        return testSession?.answers.find(a => a.questionId === questionId);
-    };
-
-    const answerOptions = [
-        { value: '+', label: 'Нравится', icon: <ThumbUpIcon />, color: '#10b981' },
-        { value: '+-', label: 'Скорее нравится, чем нет', icon: <SentimentNeutralIcon />, color: '#f59e0b' },
-        { value: '-', label: 'Не нравится', icon: <ThumbDownIcon />, color: '#ef4444' }
-    ];
 
     if (loading) {
         return (
@@ -229,7 +258,10 @@ const YovayshaLaTest = () => {
                 <Typography variant="h5" color="text.secondary">
                     Не удалось загрузить тест
                 </Typography>
-                <Button onClick={startTest} variant="contained">
+                <Button onClick={() => {
+                    hasStarted.current = false;
+                    startTest();
+                }} variant="contained">
                     Попробовать снова
                 </Button>
             </Box>
@@ -237,8 +269,14 @@ const YovayshaLaTest = () => {
     }
 
     const answeredCount = testSession.answers.length;
-    const currentAnswerObj = getAnsweredQuestion(currentQuestion.id);
+    const currentAnswerObj = testSession.answers.find(a => a.questionId === currentQuestion.id);
     const initialAnswer = currentAnswerObj ? currentAnswerObj.answer : '';
+
+    const answerOptions = [
+        { value: '+', label: 'Нравится', icon: <ThumbUpIcon />, color: '#10b981' },
+        { value: '+-', label: 'Скорее нравится, чем нет', icon: <SentimentNeutralIcon />, color: '#f59e0b' },
+        { value: '-', label: 'Не нравится', icon: <ThumbDownIcon />, color: '#ef4444' }
+    ];
 
     return (
         <Box sx={{ 
@@ -247,6 +285,17 @@ const YovayshaLaTest = () => {
             py: 4,
         }}>
             <Container maxWidth="md">
+                <Snackbar 
+                    open={showError} 
+                    autoHideDuration={6000} 
+                    onClose={() => setShowError(false)}
+                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                >
+                    <Alert severity="error" onClose={() => setShowError(false)}>
+                        {error}
+                    </Alert>
+                </Snackbar>
+
                 <Box sx={{ mb: 4 }}>
                     <Button
                         onClick={() => navigate('/')}
@@ -261,6 +310,15 @@ const YovayshaLaTest = () => {
                     >
                         На главную
                     </Button>
+                    
+                    <Paper sx={{ p: 2, borderRadius: 2, mb: 2, bgcolor: 'rgba(255,255,255,0.9)' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PsychologyAltIcon sx={{ color: theme.palette.primary.main }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                Методика Л.А. Йовайши (Предпочтения в работе)
+                            </Typography>
+                        </Box>
+                    </Paper>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                         <Box sx={{ flex: 1, mr: 2 }}>
@@ -315,17 +373,6 @@ const YovayshaLaTest = () => {
                         </Typography>
                     </Box>
                 </Box>
-
-                <Snackbar 
-                    open={showError} 
-                    autoHideDuration={6000} 
-                    onClose={() => setShowError(false)}
-                    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-                >
-                    <Alert severity="error" onClose={() => setShowError(false)}>
-                        {error}
-                    </Alert>
-                </Snackbar>
 
                 <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 20px 40px rgba(0, 0, 0, 0.08)' }}>
                     <CardContent sx={{ p: 4 }}>
@@ -406,10 +453,6 @@ const YovayshaLaTest = () => {
                                     fontWeight: 600,
                                     borderColor: canGoBack ? 'primary.main' : 'grey.300',
                                     color: canGoBack ? 'primary.main' : 'text.disabled',
-                                    '&:hover': {
-                                        backgroundColor: canGoBack ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                                        borderColor: canGoBack ? 'primary.main' : 'grey.300',
-                                    }
                                 }}
                             >
                                 Назад
@@ -427,13 +470,6 @@ const YovayshaLaTest = () => {
                                     fontSize: '1rem',
                                     fontWeight: 600,
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                    '&:hover': {
-                                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                                        transform: 'translateY(-2px)',
-                                    },
-                                    '&:disabled': {
-                                        background: 'grey.300',
-                                    }
                                 }}
                             >
                                 {submitting ? 'Отправка...' : currentQuestionNumber === TOTAL_QUESTIONS ? 'Завершить' : 'Далее'}
@@ -456,9 +492,7 @@ const YovayshaLaTest = () => {
                     maxWidth="md"
                     fullWidth
                 >
-                    <DialogTitle>
-                        История ответов
-                    </DialogTitle>
+                    <DialogTitle>История ответов</DialogTitle>
                     <DialogContent>
                         <Box sx={{ mt: 2 }}>
                             {answersHistory.length === 0 ? (

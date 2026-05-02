@@ -1,5 +1,6 @@
 import User from '../models/User.mjs';
 import Specialty from '../models/Specialty.mjs';
+import TestSession from '../models/TestSession.mjs';
 import mongoose from 'mongoose';
 
 // Вопросы методики "Карта интересов" А.Е. Голомштока
@@ -112,6 +113,74 @@ const GOLOMShtok_TO_KLIMOV = {
     sports: ['manHuman', 'manTech']
 };
 
+// ========== НОВЫЕ ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ СЕССИЙ ==========
+
+async function saveSessionToDB(userId, testSession, testType, completed = false) {
+    try {
+        const existingSession = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        const sessionData = {
+            userId,
+            testType,
+            sessionData: testSession,
+            currentQuestionId: testSession.currentQuestion?.id,
+            answersCount: testSession.answers?.length || 0,
+            progress: Math.round(((testSession.answers?.length || 0) / TOTAL_QUESTIONS) * 100),
+            completed,
+            lastActivity: new Date()
+        };
+        
+        if (completed) {
+            sessionData.completedAt = new Date();
+        }
+        
+        if (existingSession) {
+            existingSession.sessionData = testSession;
+            existingSession.currentQuestionId = testSession.currentQuestion?.id;
+            existingSession.answersCount = testSession.answers?.length || 0;
+            existingSession.progress = sessionData.progress;
+            existingSession.completed = completed;
+            existingSession.lastActivity = new Date();
+            if (completed) existingSession.completedAt = new Date();
+            await existingSession.save();
+            return existingSession;
+        } else {
+            const newSession = new TestSession(sessionData);
+            await newSession.save();
+            return newSession;
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения сессии:', error);
+        return null;
+    }
+}
+
+async function getSavedSession(userId, testType) {
+    try {
+        const session = await TestSession.findOne({ 
+            userId, 
+            testType, 
+            completed: false 
+        });
+        
+        if (session && session.sessionData) {
+            session.lastActivity = new Date();
+            await session.save();
+            return session.sessionData;
+        }
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения сессии:', error);
+        return null;
+    }
+}
+
+// ========== ИЗМЕНЕННАЯ ФУНКЦИЯ getGolomshtokTest (С ВОССТАНОВЛЕНИЕМ СЕССИИ) ==========
+
 export const getGolomshtokTest = async (req, res) => {
     try {
         console.log('Starting Golomshtok test for user:', req.user?._id);
@@ -120,6 +189,27 @@ export const getGolomshtokTest = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: 'Необходима авторизация'
+            });
+        }
+
+        const userId = req.user._id;
+        
+        // НОВОЕ: Проверяем есть ли сохраненная незавершенная сессия
+        let savedSession = await getSavedSession(userId, 'golomshtok');
+        
+        if (savedSession) {
+            console.log('Found saved Golomshtok session, restoring...');
+            const currentQuestionNumber = savedSession.answers.length + 1;
+            const progress = Math.round((savedSession.answers.length / TOTAL_QUESTIONS) * 100);
+            
+            return res.json({
+                success: true,
+                testSession: savedSession,
+                question: savedSession.currentQuestion,
+                totalQuestions: TOTAL_QUESTIONS,
+                currentQuestionNumber: currentQuestionNumber,
+                progress: progress,
+                canGoBack: savedSession.previousQuestions && savedSession.previousQuestions.length > 0
             });
         }
 
@@ -149,6 +239,9 @@ export const getGolomshtokTest = async (req, res) => {
             currentQuestion: { ...shuffledQuestions[0] }
         };
 
+        // НОВОЕ: Сохраняем в БД
+        await saveSessionToDB(userId, testSession, 'golomshtok');
+
         console.log('Test session created with first question:', testSession.currentQuestion.id);
 
         res.json({
@@ -168,6 +261,8 @@ export const getGolomshtokTest = async (req, res) => {
         });
     }
 };
+
+// ========== ИЗМЕНЕННАЯ ФУНКЦИЯ submitGolomshtokAnswer (С СОХРАНЕНИЕМ СЕССИИ) ==========
 
 export const submitGolomshtokAnswer = async (req, res) => {
     try {
@@ -267,7 +362,7 @@ export const submitGolomshtokAnswer = async (req, res) => {
                 updatedSession.answers[existingAnswerIndex] = {
                     questionId: parseInt(questionId),
                     answer: answer,
-                    timestamp: new Date() // !!! ВАЖНО: используем Date объект, а не строку
+                    timestamp: new Date()
                 };
                 
                 console.log('Updated existing answer for question', questionId);
@@ -276,7 +371,7 @@ export const submitGolomshtokAnswer = async (req, res) => {
                 updatedSession.answers.push({
                     questionId: parseInt(questionId),
                     answer: answer,
-                    timestamp: new Date() // !!! ВАЖНО: используем Date объект, а не строку
+                    timestamp: new Date()
                 });
 
                 // Обновляем счет
@@ -291,6 +386,8 @@ export const submitGolomshtokAnswer = async (req, res) => {
             // Проверяем, завершен ли тест
             if (updatedSession.answers.length >= TOTAL_QUESTIONS) {
                 console.log('Test completed, calling completeGolomshtokTest');
+                // НОВОЕ: Удаляем сессию перед завершением
+                await TestSession.findOneAndDelete({ userId, testType: 'golomshtok', completed: false });
                 return await completeGolomshtokTest(userId, updatedSession, res);
             }
 
@@ -312,6 +409,7 @@ export const submitGolomshtokAnswer = async (req, res) => {
             } else {
                 // Если нет оставшихся вопросов, завершаем тест
                 console.log('No remaining questions, completing test');
+                await TestSession.findOneAndDelete({ userId, testType: 'golomshtok', completed: false });
                 return await completeGolomshtokTest(userId, updatedSession, res);
             }
 
@@ -352,6 +450,9 @@ export const submitGolomshtokAnswer = async (req, res) => {
             updatedSession.previousQuestions = testSession.previousQuestions.slice(0, -1);
         }
 
+        // НОВОЕ: Сохраняем обновленную сессию в БД
+        await saveSessionToDB(userId, updatedSession, 'golomshtok');
+
         const currentQuestionNumber = updatedSession.answers.length + 1;
         const progress = Math.round((updatedSession.answers.length / TOTAL_QUESTIONS) * 100);
 
@@ -376,6 +477,8 @@ export const submitGolomshtokAnswer = async (req, res) => {
         });
     }
 };
+
+// ========== ФУНКЦИЯ completeGolomshtokTest (ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ, КРОМЕ УДАЛЕНИЯ СЕССИИ В НАЧАЛЕ) ==========
 
 async function completeGolomshtokTest(userId, testSession, res) {
     try {
@@ -635,6 +738,8 @@ async function completeGolomshtokTest(userId, testSession, res) {
     }
 }
 
+// ========== ВСЕ ОСТАЛЬНЫЕ ФУНКЦИИ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ ==========
+
 export const getGolomshtokResults = async (req, res) => {
     try {
         console.log('Getting Golomshtok results for user:', req.user?._id);
@@ -833,7 +938,15 @@ export const forceCleanupGolomshtokData = async (req, res) => {
 
         console.log(`Removed Golomshtok results from ${result.modifiedCount} users`);
 
-        // 2. Дополнительно проходим по всем пользователям и проверяем
+        // 2. Дополнительно удаляем все незавершенные сессии Голомштока
+        const sessionsResult = await TestSession.deleteMany({
+            testType: 'golomshtok',
+            completed: false
+        });
+        
+        console.log(`Removed ${sessionsResult.deletedCount} incomplete Golomshtok sessions`);
+
+        // 3. Дополнительно проходим по всем пользователям и проверяем
         const users = await User.find({});
         let fixedCount = 0;
 
@@ -860,7 +973,8 @@ export const forceCleanupGolomshtokData = async (req, res) => {
             message: 'Полная очистка данных Голомштока завершена',
             stats: {
                 usersUpdated: result.modifiedCount,
-                usersFixed: fixedCount
+                usersFixed: fixedCount,
+                sessionsRemoved: sessionsResult.deletedCount
             }
         });
 
